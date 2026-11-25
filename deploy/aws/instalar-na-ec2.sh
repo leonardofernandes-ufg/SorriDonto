@@ -3,8 +3,17 @@
 #   1) sudo dnf install -y git   2) git clone <repo> && cd SorriDonto   3) bash deploy/aws/instalar-na-ec2.sh
 set -euo pipefail
 REGIAO="${AWS_REGION:-sa-east-1}"
+# FONTE_SEGREDOS=ssm (padrão, gratuito: Parameter Store SecureString) ou secretsmanager (US$ 0,40 por segredo/mês)
+FONTE_SEGREDOS="${FONTE_SEGREDOS:-ssm}"
 SEGREDO_CHAVE="${SEGREDO_CHAVE:-sorridonto/data-key}"
 SEGREDO_ADMIN="${SEGREDO_ADMIN:-sorridonto/admin-password}"
+pega() {   # pega <nome>
+  if [ "$FONTE_SEGREDOS" = "ssm" ]; then
+    aws ssm get-parameter --region "$REGIAO" --name "/$1" --with-decryption --query Parameter.Value --output text
+  else
+    aws secretsmanager get-secret-value --region "$REGIAO" --secret-id "$1" --query SecretString --output text
+  fi
+}
 
 sudo dnf install -y docker awscli >/dev/null
 sudo systemctl enable --now docker
@@ -13,11 +22,11 @@ sudo mkdir -p /usr/local/lib/docker/cli-plugins
 sudo curl -fsSL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-$(uname -m)" -o /usr/local/lib/docker/cli-plugins/docker-compose
 sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
-# segredos vêm do AWS Secrets Manager (cifrados com KMS) e ficam só em arquivos 0400 do uid 10001
+# segredos vêm do SSM Parameter Store ou do Secrets Manager (cifrados com KMS) e ficam só em arquivos 0400 do uid 10001
 mkdir -p secrets
 umask 077
-aws secretsmanager get-secret-value --region "$REGIAO" --secret-id "$SEGREDO_CHAVE" --query SecretString --output text > secrets/data_key
-aws secretsmanager get-secret-value --region "$REGIAO" --secret-id "$SEGREDO_ADMIN" --query SecretString --output text > secrets/admin_password
+pega "$SEGREDO_CHAVE" > secrets/data_key
+pega "$SEGREDO_ADMIN" > secrets/admin_password
 sudo chown 10001:10001 secrets/data_key secrets/admin_password
 sudo chmod 400 secrets/data_key secrets/admin_password
 

@@ -51,7 +51,53 @@ Preços de EC2 e IPv4 conferidos em fontes públicas; os itens com (*) são de m
 mas mantém os dados no Brasil. Contas com o *Free Tier* têm 750 h/mês grátis de IPv4 público nos primeiros 12 meses.
 Para 5 acessos por dia o uso de CPU e rede é desprezível: o custo é todo de "manter a máquina ligada".
 
-## Passo a passo
+## Modo Free Tier (apresentação universitária, custo próximo de zero)
+
+Funciona dentro do Free Tier da AWS com estas trocas em relação ao passo a passo completo:
+
+| Item do guia completo | No Free Tier | Perda de proteção |
+|---|---|---|
+| EC2 `t3.small` | `t3.micro` (confira se é elegível: `aws ec2 describe-instance-types --filters Name=free-tier-eligible,Values=true --query "InstanceTypes[*].InstanceType"`) | nenhuma para poucos usuários |
+| Chave KMS própria (≈ US$ 1/mês) | chave gerenciada pela AWS (`aws/ebs`), que o EBS cifrado já usa | você não controla a política da chave |
+| Secrets Manager (US$ 0,40 por segredo) | **SSM Parameter Store** `SecureString` (camada padrão, sem custo de armazenamento) | nenhuma relevante |
+| S3 com SSE-KMS | SSE-S3 (gratuito) e o backup já sai cifrado pelo app | nenhuma: o arquivo já é cifrado por você |
+| Domínio próprio | subdomínio gratuito (veja abaixo) | nenhuma |
+
+**Sobre o Free Tier.** Contas criadas **depois de 15/07/2025** recebem até US$ 200 em créditos e um plano gratuito
+de 6 meses (acaba quando os créditos ou o prazo terminam, o que vier primeiro). Contas mais antigas têm 750 h/mês de EC2
+elegível e de IPv4 público por 12 meses. Confira em *Billing → Free Tier* qual é o seu caso e **crie um alerta de orçamento**
+(AWS Budgets, US$ 5) para não ter surpresa.
+
+**Roteiro (cerca de 30 minutos; faça HOJE, não na hora da apresentação):**
+```bash
+export AWS_REGION=sa-east-1
+# 1) disco cifrado por padrão (chave aws/ebs, sem custo)
+aws ec2 enable-ebs-encryption-by-default
+# 2) segredos no Parameter Store (cifrados com a chave aws/ssm)
+aws ssm put-parameter --name /sorridonto/data-key       --type SecureString --value "$(openssl rand -base64 32)"
+aws ssm put-parameter --name /sorridonto/admin-password --type SecureString --value "$(openssl rand -base64 18 | tr -d '/+=\n')"
+# guarde a data-key também fora da AWS: sem ela os dados cifrados não abrem
+```
+3. Crie o papel IAM da EC2 com a política [iam-policy-ec2-freetier.json](iam-policy-ec2-freetier.json) + `AmazonSSMManagedInstanceCore`.
+4. Lance a EC2 `t3.micro` (Amazon Linux 2023, gp3 de 20 GB, IMDSv2 obrigatório) com security group **só 80 e 443**, e associe um **IP elástico**.
+5. **Nome para o HTTPS.** O Let's Encrypt precisa de um nome DNS. Sem comprar domínio: um subdomínio gratuito do
+   [DuckDNS](https://www.duckdns.org) apontando para o IP elástico (`sorridonto.duckdns.org`). Alternativa: `SEU-IP-COM-HIFENS.sslip.io`
+   (por exemplo, `54-233-10-20.sslip.io`), que resolve para o próprio IP, mas o limite de emissão de certificados é compartilhado
+   com quem mais usa o serviço (não verifiquei o limite atual).
+6. Na instância (Session Manager):
+```bash
+sudo dnf install -y git && git clone https://github.com/leonardofernandes-ufg/SorriDonto.git && cd SorriDonto
+printf 'DOMINIO=sorridonto.duckdns.org\nEMAIL_ACME=seu@email.com\nADMIN_EMAIL=admin@sorridonto.local\n' > .env
+FONTE_SEGREDOS=ssm bash deploy/aws/instalar-na-ec2.sh
+```
+7. Abra `https://SEU-NOME`, entre com o administrador (senha = parâmetro `/sorridonto/admin-password`) e cadastre um paciente.
+
+**Plano B para a apresentação:** deixe o sistema rodando também no seu computador (`npm start`, ou `docker compose` com
+`DOMINIO=localhost`). Se a internet ou o DNS falharem, você apresenta localmente sem perder nada.
+
+**Depois da nota:** desligue ou termine a instância e libere o IP elástico (IPv4 parado também gera cobrança).
+
+## Passo a passo (versão completa)
 
 ### 1. Chave KMS e criptografia padrão do EBS
 ```bash

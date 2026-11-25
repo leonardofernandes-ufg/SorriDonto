@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LerParametrosDoApp",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter"],
+      "Resource": "arn:aws:ssm:REGIAO:CONTA:parameter/sorridonto/*"
+    },
+    {
+      "Sid": "SoEnviarBackups",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject"],
+      "Resource": "arn:aws:s3:::NOME-DO-BUCKET/sorridonto/*"
+    }
+  ]
+}
