@@ -1,6 +1,8 @@
 'use strict';
-// Banco SQLite local (módulo nativo do Node). O esquema usa tipos e constraints
-// que se traduzem direto para PostgreSQL (SERIAL, CHECK, UNIQUE, FOREIGN KEY).
+// Banco SQLite local (módulo nativo do Node). O esquema segue o banco da equipe (grupo 4 – controle de
+// acesso): empresa, usuario, recurso (+ logico/fisico), credencial (+ cracha/cartao), autorizacao e
+// tentativa. Acrescenta visitante, visita, interesse e log_auditoria. Usa só tipos e constraints que
+// se traduzem direto para PostgreSQL (CHECK, UNIQUE, FOREIGN KEY).
 const fs = require('fs');
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
@@ -14,31 +16,104 @@ const db = new DatabaseSync(path.join(dir, 'sorridonto.db'));
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA secure_delete = ON;');
 
 db.exec(`
-CREATE TABLE IF NOT EXISTS funcionario (
-  id_funcionario INTEGER PRIMARY KEY AUTOINCREMENT,
-  nome        TEXT NOT NULL,
-  email       TEXT NOT NULL UNIQUE,
-  senha_hash  TEXT NOT NULL,
-  perfil      TEXT NOT NULL CHECK (perfil IN ('admin','dentista','recepcao')),
-  cargo       TEXT,
-  cro         TEXT,
-  telefone    TEXT,
-  ativo       INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0,1)),
-  criado_em   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- ---------------------------------------------------------------- banco da equipe (etapas anteriores)
+CREATE TABLE IF NOT EXISTS empresa (
+  id_empresa INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome       TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS paciente (
-  id_paciente     INTEGER PRIMARY KEY AUTOINCREMENT,
-  nome            TEXT NOT NULL,
-  cpf             TEXT NOT NULL UNIQUE,
-  data_nascimento TEXT,
-  telefone        TEXT,
-  email           TEXT,
-  cidade          TEXT,
-  endereco        TEXT,
-  observacoes     TEXT,
-  criado_em       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  criado_por      INTEGER REFERENCES funcionario (id_funcionario)
+CREATE TABLE IF NOT EXISTS usuario (
+  id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome       TEXT NOT NULL,
+  unidade    TEXT NOT NULL,
+  situacao   TEXT NOT NULL DEFAULT 'ATIVO' CHECK (situacao IN ('ATIVO','INATIVO','BLOQUEADO')),
+  -- acrescentadas para o sistema de portaria:
+  id_empresa INTEGER NOT NULL REFERENCES empresa (id_empresa) ON UPDATE CASCADE ON DELETE RESTRICT,
+  email      TEXT NOT NULL UNIQUE,
+  perfil     TEXT NOT NULL CHECK (perfil IN ('ADMIN','PORTEIRO','MORADOR'))
+);
+
+CREATE TABLE IF NOT EXISTS recurso (
+  id_recurso  INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_empresa  INTEGER NOT NULL REFERENCES empresa (id_empresa) ON UPDATE CASCADE ON DELETE RESTRICT,
+  nome        TEXT NOT NULL,
+  criticidade TEXT NOT NULL CHECK (criticidade IN ('BAIXA','MEDIA','ALTA')),
+  tipo        TEXT NOT NULL CHECK (tipo IN ('L','F')),
+  UNIQUE (id_recurso, tipo)
+);
+CREATE TABLE IF NOT EXISTS recurso_logico (
+  id_recurso INTEGER PRIMARY KEY,
+  tipo       TEXT NOT NULL DEFAULT 'L' CHECK (tipo = 'L'),
+  FOREIGN KEY (id_recurso, tipo) REFERENCES recurso (id_recurso, tipo) ON UPDATE CASCADE ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS recurso_fisico (
+  id_recurso INTEGER PRIMARY KEY,
+  tipo       TEXT NOT NULL DEFAULT 'F' CHECK (tipo = 'F'),
+  FOREIGN KEY (id_recurso, tipo) REFERENCES recurso (id_recurso, tipo) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+-- senha: hash scrypt (salt:hash), nunca a senha. tipo C = crachá (acesso físico), T = cartão (acesso lógico)
+CREATE TABLE IF NOT EXISTS credencial (
+  id_credencial INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_usuario    INTEGER NOT NULL REFERENCES usuario (id_usuario) ON UPDATE CASCADE ON DELETE RESTRICT,
+  senha         TEXT NOT NULL,
+  tipo          TEXT NOT NULL CHECK (tipo IN ('C','T')),
+  UNIQUE (id_credencial, tipo)
+);
+CREATE TABLE IF NOT EXISTS cracha (
+  id_credencial INTEGER PRIMARY KEY,
+  tipo          TEXT NOT NULL DEFAULT 'C' CHECK (tipo = 'C'),
+  FOREIGN KEY (id_credencial, tipo) REFERENCES credencial (id_credencial, tipo) ON UPDATE CASCADE ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS cartao (
+  id_credencial INTEGER PRIMARY KEY,
+  tipo          TEXT NOT NULL DEFAULT 'T' CHECK (tipo = 'T'),
+  FOREIGN KEY (id_credencial, tipo) REFERENCES credencial (id_credencial, tipo) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+-- liberação: quem pode usar qual recurso, de quando até quando
+CREATE TABLE IF NOT EXISTS autorizacao (
+  id_usuario INTEGER NOT NULL REFERENCES usuario (id_usuario) ON DELETE CASCADE,
+  id_recurso INTEGER NOT NULL REFERENCES recurso (id_recurso) ON DELETE CASCADE,
+  inicio     TEXT NOT NULL,                      -- AAAA-MM-DD
+  fim        TEXT,                               -- AAAA-MM-DD; vazio = sem prazo
+  situacao   TEXT NOT NULL DEFAULT 'ATIVA' CHECK (situacao IN ('ATIVA','SUSPENSA')),
+  PRIMARY KEY (id_usuario, id_recurso)
+);
+
+-- cada tentativa de passagem, permitida ou negada (registro que o sistema nunca altera nem apaga)
+CREATE TABLE IF NOT EXISTS tentativa (
+  id_tentativa  INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_usuario    INTEGER REFERENCES usuario (id_usuario),   -- vazio quando a credencial é desconhecida
+  id_recurso    INTEGER NOT NULL REFERENCES recurso (id_recurso),
+  data_hora     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- UTC
+  resultado     TEXT NOT NULL CHECK (resultado IN ('PERMITIDO','NEGADO')),
+  motivo_recusa TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_tentativa_recurso ON tentativa (id_recurso, id_tentativa);
+
+-- ---------------------------------------------------------------- acrescentado para a portaria
+-- Visitantes: CPF e telefone cifrados (AES-256-GCM); cpf_idx é o índice cego para busca e unicidade.
+CREATE TABLE IF NOT EXISTS visitante (
+  id_visitante INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_empresa   INTEGER NOT NULL REFERENCES empresa (id_empresa),
+  nome         TEXT NOT NULL,
+  cpf          TEXT NOT NULL,
+  cpf_idx      TEXT NOT NULL,
+  telefone     TEXT,
+  criado_em    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id_empresa, cpf_idx)
+);
+
+CREATE TABLE IF NOT EXISTS visita (
+  id_visita     INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_empresa    INTEGER NOT NULL REFERENCES empresa (id_empresa),
+  id_visitante  INTEGER NOT NULL REFERENCES visitante (id_visitante),
+  id_anfitriao  INTEGER NOT NULL REFERENCES usuario (id_usuario),
+  id_recurso    INTEGER NOT NULL REFERENCES recurso (id_recurso),
+  data_prevista TEXT NOT NULL,                              -- AAAA-MM-DDTHH:MM (horário local)
+  status        TEXT NOT NULL DEFAULT 'AGENDADA'
+                CHECK (status IN ('AGENDADA','AUTORIZADA','REALIZADA','CANCELADA','NEGADA'))
 );
 
 -- Interessados que pedem o teste grátis pela landing page (formulário público).
@@ -46,69 +121,37 @@ CREATE TABLE IF NOT EXISTS interesse (
   id_interesse INTEGER PRIMARY KEY AUTOINCREMENT,
   nome      TEXT NOT NULL,
   email     TEXT NOT NULL,
-  clinica   TEXT,
+  clinica   TEXT,                                           -- nome do condomínio ou empresa
   mensagem  TEXT,
   criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Trilha de auditoria: escrita só pela aplicação (append-only).
-CREATE TABLE IF NOT EXISTS log_acesso (
-  id_log         INTEGER PRIMARY KEY AUTOINCREMENT,
-  momento        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  id_funcionario INTEGER REFERENCES funcionario (id_funcionario),
-  acao           TEXT NOT NULL,
-  detalhe        TEXT
+-- Trilha de auditoria dos cadastros e das liberações: escrita só pela aplicação.
+CREATE TABLE IF NOT EXISTS log_auditoria (
+  id_log     INTEGER PRIMARY KEY AUTOINCREMENT,
+  momento    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  id_usuario INTEGER REFERENCES usuario (id_usuario),
+  id_empresa INTEGER,
+  acao       TEXT NOT NULL,
+  detalhe    TEXT
 );
 `);
 
-// ---- criptografia em repouso: colunas e índices cegos --------------------------------------------
-const colunas = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
-if (!colunas('paciente').includes('cpf_idx')) db.exec('ALTER TABLE paciente ADD COLUMN cpf_idx TEXT');
-if (!colunas('paciente').includes('email_idx')) db.exec('ALTER TABLE paciente ADD COLUMN email_idx TEXT');
-db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ux_paciente_cpf_idx ON paciente (cpf_idx);
-         CREATE INDEX IF NOT EXISTS ix_paciente_email_idx ON paciente (email_idx);`);
-
-/** Campos de paciente cifrados no banco (nome, cidade e data de cadastro ficam legíveis para busca/relatórios). */
-const CAMPOS_PACIENTE = ['cpf', 'data_nascimento', 'telefone', 'email', 'endereco', 'observacoes'];
-
-function paraBanco(d) {
-  const o = {};
-  for (const c of CAMPOS_PACIENTE) o[c] = cripto.cifra(d[c], 'paciente.' + c);
-  o.cpf_idx = cripto.indice(d.cpf, 'paciente.cpf');
-  o.email_idx = cripto.indice(d.email, 'paciente.email');
-  return o;
+/** Visitante: cifra CPF e telefone antes de gravar e devolve o índice cego do CPF. */
+function cifraVisitante(d) {
+  return {
+    cpf: cripto.cifra(d.cpf, 'visitante.cpf'),
+    cpf_idx: cripto.indice(d.cpf, 'visitante.cpf'),
+    telefone: cripto.cifra(d.telefone, 'visitante.telefone'),
+  };
 }
-function doBanco(l) {
-  const o = { ...l };
-  for (const c of CAMPOS_PACIENTE) o[c] = cripto.decifra(l[c], 'paciente.' + c);
-  delete o.cpf_idx; delete o.email_idx;
+/** Decifra uma linha de visitante lida do banco. */
+function decifraVisitante(l) {
+  const o = { ...l, cpf: cripto.decifra(l.cpf, 'visitante.cpf'), telefone: cripto.decifra(l.telefone, 'visitante.telefone') };
+  delete o.cpf_idx;
   return o;
-}
-
-/** Cifra o que já estava em texto puro (bancos criados antes da criptografia) e limpa os resíduos. */
-function migraCriptografia() {
-  const antigos = db.prepare('SELECT * FROM paciente').all().filter((p) => !cripto.estaCifrado(p.cpf));
-  const leads = db.prepare('SELECT * FROM interesse').all().filter((i) => !cripto.estaCifrado(i.email));
-  if (!antigos.length && !leads.length) return 0;
-  db.exec('BEGIN');
-  try {
-    for (const p of antigos) {
-      const c = paraBanco(p);
-      db.prepare(`UPDATE paciente SET cpf=?, data_nascimento=?, telefone=?, email=?, endereco=?, observacoes=?, cpf_idx=?, email_idx=?
-                  WHERE id_paciente=?`).run(c.cpf, c.data_nascimento, c.telefone, c.email, c.endereco, c.observacoes, c.cpf_idx, c.email_idx, p.id_paciente);
-    }
-    for (const i of leads) {
-      db.prepare('UPDATE interesse SET email=?, mensagem=? WHERE id_interesse=?')
-        .run(cripto.cifra(i.email, 'interesse.email'), cripto.cifra(i.mensagem, 'interesse.mensagem'), i.id_interesse);
-    }
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
-  // reescreve o arquivo para não sobrar texto puro em páginas livres nem no WAL
-  db.exec('PRAGMA wal_checkpoint(TRUNCATE); VACUUM; PRAGMA wal_checkpoint(TRUNCATE);');
-  return antigos.length + leads.length;
 }
 
 module.exports = db;
-module.exports.paraBanco = paraBanco;
-module.exports.doBanco = doBanco;
-module.exports.migraCriptografia = migraCriptografia;
+module.exports.cifraVisitante = cifraVisitante;
+module.exports.decifraVisitante = decifraVisitante;

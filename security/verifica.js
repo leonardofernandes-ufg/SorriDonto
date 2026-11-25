@@ -141,40 +141,39 @@ async function sqli() {
   ok(semAcesso, `Login resiste a ${cargas.length * 2} cargas de SQL injection (e-mail e senha)`);
 
   if (!cookie) return registra('PULADO', 'Testes de SQL injection autenticados', 'sem login de teste');
-  const base = await req('/api/pacientes?q=' + encodeURIComponent('zzz-nao-existe-' + crypto.randomBytes(4).toString('hex')), { auth: true });
+  const base = await req('/api/usuarios?q=' + encodeURIComponent('zzz-nao-existe-' + crypto.randomBytes(4).toString('hex')), { auth: true });
   const nBase = JSON.parse(base.texto || '[]').length;
-  const busca = ["' OR '1'='1", "%", "_", "' UNION SELECT senha_hash,email,1,1,1,1,1,1,1,1 FROM funcionario--",
-    "'; DROP TABLE paciente;--", "1' AND (SELECT COUNT(*) FROM funcionario)>0--", "\\' OR 1=1--"];
+  const busca = ["' OR '1'='1", "%", "_", "' UNION SELECT senha,email,1,1,1,1,1,1,1,1 FROM credencial--",
+    "'; DROP TABLE usuario;--", "1' AND (SELECT COUNT(*) FROM credencial)>0--", "\\' OR 1=1--"];
   let literal = true, vazou = false;
   for (const c of busca) {
-    const r = await req('/api/pacientes?q=' + encodeURIComponent(c), { auth: true });
+    const r = await req('/api/usuarios?q=' + encodeURIComponent(c), { auth: true });
     if (r.status !== 200) { literal = false; continue; }
-    if (/senha_hash|[0-9a-f]{32}:[0-9a-f]{128}/.test(r.texto)) vazou = true;
+    if (/"senha"|[0-9a-f]{32}:[0-9a-f]{128}/.test(r.texto)) vazou = true;
     if (JSON.parse(r.texto).length > nBase) literal = false;
   }
   ok(literal, `Busca trata ${busca.length} cargas como texto comum (nenhuma linha a mais que o normal)`);
   ok(!vazou, 'Nenhum hash de senha aparece nas respostas');
   const t0 = Date.now();
-  await req('/api/pacientes?q=' + encodeURIComponent("1' AND (SELECT randomblob(400000000))--"), { auth: true });
+  await req('/api/usuarios?q=' + encodeURIComponent("1' AND (SELECT randomblob(400000000))--"), { auth: true });
   ok(Date.now() - t0 < 3000, 'Injeção por tempo (randomblob) não atrasa a resposta', (Date.now() - t0) + ' ms');
-  const ids = ['1%20OR%201=1', '1;DROP%20TABLE%20paciente', '1%27--', '-1%20UNION%20SELECT%201'];
+  const ids = ['1%20OR%201=1', '1;DROP%20TABLE%20usuario', '1%27--', '-1%20UNION%20SELECT%201'];
   let nenhum = true;
-  for (const i of ids) { const r = await req('/api/pacientes/' + i, { auth: true }); if (![404, 400].includes(r.status)) nenhum = false; }
+  for (const i of ids) { const r = await req('/api/usuarios/' + i, { auth: true }); if (![404, 400].includes(r.status)) nenhum = false; }
   ok(nenhum, 'ID na URL só aceita números (outros valores dão 404)');
 
   // grava um texto malicioso (sem tags) e confere que fica literal e que as tabelas seguem íntegras
-  const nome = "Robert'); DROP TABLE paciente;--";
-  const cpf = cpfAleatorio();
-  const c = await req('/api/pacientes', { metodo: 'POST', auth: true, json: { nome, cpf } });
+  const nome = "Robert'); DROP TABLE recurso;--";
+  const c = await req('/api/recursos', { metodo: 'POST', auth: true, json: { nome, criticidade: 'BAIXA', tipo: 'F' } });
   ok(c.status === 200, 'Cadastro aceita aspas e ponto e vírgula como texto', 'status ' + c.status);
   if (c.status === 200) {
-    const id = JSON.parse(c.texto).id_paciente;
-    const g = await req('/api/pacientes/' + id, { auth: true });
+    const id = JSON.parse(c.texto).id_recurso;
+    const g = await req('/api/recursos/' + id, { auth: true });
     ok(JSON.parse(g.texto).nome === nome, 'O texto foi gravado literalmente, sem executar');
-    const l = await req('/api/pacientes', { auth: true });
-    const f = await req('/api/funcionarios', { auth: true });
-    ok(l.status === 200 && f.status === 200, 'Tabelas paciente e funcionario continuam existindo');
-    await req('/api/pacientes/' + id, { metodo: 'DELETE', auth: true });
+    const l = await req('/api/recursos', { auth: true });
+    const f = await req('/api/usuarios', { auth: true });
+    ok(l.status === 200 && f.status === 200, 'Tabelas recurso e usuario continuam existindo');
+    await req('/api/recursos/' + id, { metodo: 'DELETE', auth: true });
   }
 }
 
@@ -188,16 +187,16 @@ async function xss() {
     const r = await req('/api/interesse', { metodo: 'POST', json: { nome: 'Teste Segurança', email: 'seg@exemplo.com', mensagem: c } });
     if (r.status === 400) publico++;
     if (cookie) {
-      const a = await req('/api/pacientes', { metodo: 'POST', auth: true, json: { nome: 'Teste ' + c, cpf: cpfAleatorio() } });
-      const b = await req('/api/pacientes', { metodo: 'POST', auth: true, json: { nome: 'Teste Seguro', cpf: cpfAleatorio(), observacoes: c } });
+      const a = await req('/api/recursos', { metodo: 'POST', auth: true, json: { nome: 'Teste ' + c, criticidade: 'BAIXA', tipo: 'F' } });
+      const b = await req('/api/usuarios', { metodo: 'POST', auth: true, json: { nome: 'Teste Seguro', unidade: c, email: `xss${Math.floor(Math.random() * 1e9)}@teste.local`, perfil: 'MORADOR' } });
       if (a.status === 400 && b.status === 400) auth++;
-      else for (const x of [a, b]) if (x.status === 200) await req('/api/pacientes/' + JSON.parse(x.texto).id_paciente, { metodo: 'DELETE', auth: true });
+      else if (a.status === 200) await req('/api/recursos/' + JSON.parse(a.texto).id_recurso, { metodo: 'DELETE', auth: true });
     }
   }
   ok(publico === cargas.length, `Formulário público recusa ${cargas.length} cargas de HTML`, `${publico}/${cargas.length}`);
-  if (cookie) ok(auth === cargas.length, `Cadastro de paciente recusa HTML em nome e observações`, `${auth}/${cargas.length}`);
-  const f = await req('/api/funcionarios', { metodo: 'POST', auth: true, json: { nome: '<b>x</b>', email: 'xss@teste.local', perfil: 'recepcao', senha: 'senha-segura-1' } });
-  if (cookie) ok(f.status === 400, 'Cadastro de funcionário recusa HTML', 'status ' + f.status);
+  if (cookie) ok(auth === cargas.length, 'Cadastro recusa HTML no nome do local e na unidade da pessoa', `${auth}/${cargas.length}`);
+  const f = await req('/api/visitantes', { metodo: 'POST', auth: true, json: { nome: '<b>x</b>', cpf: cpfAleatorio() } });
+  if (cookie) ok(f.status === 400, 'Cadastro de visitante recusa HTML', 'status ' + f.status);
   const ref = await req('/%3Cscript%3Ealert(1)%3C/script%3E');
   ok(!ref.texto.includes('<script') && (ref.headers.get('content-type') || '').startsWith('text/plain'), 'Páginas de erro não refletem o que foi digitado na URL');
 
@@ -319,28 +318,25 @@ async function repouso() {
   if (!fs.existsSync(dbPath)) return registra('PULADO', 'Testes de criptografia em repouso', 'arquivo do banco não acessível daqui (rode no servidor ou defina DB_PATH)');
   const hex = crypto.randomBytes(5).toString('hex');
   const cpf = cpfAleatorio(), tel = '629' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0');
-  const email = `seg${hex}@exemplo.com`, marcador = 'MARCADOR' + hex.toUpperCase();
-  const c = await req('/api/pacientes', { metodo: 'POST', auth: true, json: { nome: 'Teste Cifra ' + hex, cpf, telefone: tel, email, endereco: 'Rua ' + marcador, observacoes: 'obs ' + marcador, data_nascimento: '1985-03-17' } });
-  if (c.status !== 200) return registra('FALHOU', 'Cadastro de paciente de teste', 'status ' + c.status + ' ' + c.texto.slice(0, 80));
-  const id = JSON.parse(c.texto).id_paciente;
+  const c = await req('/api/visitantes', { metodo: 'POST', auth: true, json: { nome: 'Teste Cifra ' + hex, cpf, telefone: tel } });
+  if (c.status !== 200) return registra('FALHOU', 'Cadastro de visitante de teste', 'status ' + c.status + ' ' + c.texto.slice(0, 80));
+  const id = JSON.parse(c.texto).id_visitante;
   const lerTudo = () => ['', '-wal'].map((e) => { try { return fs.readFileSync(dbPath + e); } catch { return Buffer.alloc(0); } });
   const bytes = Buffer.concat(lerTudo());
-  const procurados = { CPF: cpf, telefone: tel, 'e-mail': email, 'observações/endereço': marcador, 'data de nascimento': '1985-03-17' };
-  const achados = Object.entries(procurados).filter(([, v]) => bytes.includes(Buffer.from(v))).map(([k]) => k);
-  ok(achados.length === 0, 'CPF, telefone, e-mail, endereço, observações e nascimento NÃO aparecem em texto puro no arquivo do banco', achados.length ? 'em texto puro: ' + achados.join(', ') : '');
+  const achados = Object.entries({ CPF: cpf, telefone: tel }).filter(([, v]) => bytes.includes(Buffer.from(v))).map(([k]) => k);
+  ok(achados.length === 0, 'CPF e telefone do visitante NÃO aparecem em texto puro no arquivo do banco', achados.length ? 'em texto puro: ' + achados.join(', ') : '');
   ok(bytes.includes(Buffer.from('enc:v1:')), 'Os campos estão gravados no formato cifrado (AES-256-GCM, enc:v1)');
-  registra('ALERTA', 'O nome do paciente fica legível no arquivo do banco', 'necessário para a busca por nome; proteja o disco com criptografia (EBS/KMS)');
+  registra('ALERTA', 'O nome do visitante fica legível no arquivo do banco', 'necessário para a busca por nome; proteja o disco com criptografia (EBS/KMS)');
 
-  const g = JSON.parse((await req('/api/pacientes/' + id, { auth: true })).texto);
-  ok(g.cpf === cpf && g.telefone === tel && g.email === email, 'A aplicação decifra corretamente ao ler (ida e volta)');
-  const porCpf = JSON.parse((await req('/api/pacientes?q=' + cpf, { auth: true })).texto);
-  const porEmail = JSON.parse((await req('/api/pacientes?q=' + encodeURIComponent(email), { auth: true })).texto);
-  ok(porCpf.some((p) => p.id_paciente === id) && porEmail.some((p) => p.id_paciente === id), 'Busca por CPF e por e-mail completos funciona (índice cego HMAC)');
-  const dup = await req('/api/pacientes', { metodo: 'POST', auth: true, json: { nome: 'Outro Nome', cpf } });
+  const porCpf = JSON.parse((await req('/api/visitantes?q=' + cpf, { auth: true })).texto);
+  const v = porCpf.find((x) => x.id_visitante === id);
+  ok(!!v, 'Busca por CPF completo funciona (índice cego HMAC)');
+  ok(!!v && v.cpf === cpf && v.telefone === tel, 'A aplicação decifra corretamente ao ler (ida e volta)');
+  const dup = await req('/api/visitantes', { metodo: 'POST', auth: true, json: { nome: 'Outro Nome', cpf } });
   ok(dup.status === 409, 'Unicidade do CPF continua valendo com o CPF cifrado', 'status ' + dup.status);
-  await req('/api/pacientes/' + id, { metodo: 'DELETE', auth: true });
+  await req('/api/visitantes/' + id, { metodo: 'DELETE', auth: true });
   const depois = Buffer.concat(lerTudo());
-  ok(!depois.includes(Buffer.from(marcador)) && !depois.includes(Buffer.from(cpf)), 'Depois de excluir, nenhum resíduo do paciente fica no arquivo (secure_delete)');
+  ok(!depois.includes(Buffer.from(cpf)) && !depois.includes(Buffer.from(tel)), 'Depois de excluir, nenhum resíduo do visitante fica no arquivo (secure_delete)');
 
   const chave = path.join(path.dirname(dbPath), '.chave-dados');
   if (fs.existsSync(chave)) ok((fs.statSync(chave).mode & 0o077) === 0, 'Arquivo da chave de dados só é legível pelo dono (0600)', '0' + (fs.statSync(chave).mode & 0o777).toString(8));

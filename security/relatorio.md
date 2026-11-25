@@ -1,8 +1,8 @@
 # Relatório de verificação de segurança – SorriDonto
 
-Executado em 25/11/2026, 10:57:26 contra `https://localhost`.
+Executado em 25/11/2026, 14:05:29 contra `http://127.0.0.1:3000`.
 
-**47 aprovados · 0 falharam · 3 alertas · 1 pulados**
+**48 aprovados · 0 falharam · 4 alertas · 1 pulados**
 
 
 ## 1. Cabeçalhos HTTP e cookies
@@ -18,7 +18,7 @@ Executado em 25/11/2026, 10:57:26 contra `https://localhost`.
 | APROVADO | Método TRACE recusado | status 405 |
 | APROVADO | Cookie de sessão é HttpOnly (JavaScript não lê) |  |
 | APROVADO | Cookie de sessão é SameSite=Strict (protege contra CSRF) |  |
-| APROVADO | Cookie de sessão é Secure | só ativa com NODE_ENV=production atrás de HTTPS |
+| ALERTA | Cookie de sessão é Secure | só ativa com NODE_ENV=production atrás de HTTPS |
 
 ## 2. SQL injection
 
@@ -27,19 +27,19 @@ Executado em 25/11/2026, 10:57:26 contra `https://localhost`.
 | APROVADO | Login resiste a 12 cargas de SQL injection (e-mail e senha) |  |
 | APROVADO | Busca trata 7 cargas como texto comum (nenhuma linha a mais que o normal) |  |
 | APROVADO | Nenhum hash de senha aparece nas respostas |  |
-| APROVADO | Injeção por tempo (randomblob) não atrasa a resposta | 5 ms |
+| APROVADO | Injeção por tempo (randomblob) não atrasa a resposta | 2 ms |
 | APROVADO | ID na URL só aceita números (outros valores dão 404) |  |
 | APROVADO | Cadastro aceita aspas e ponto e vírgula como texto | status 200 |
 | APROVADO | O texto foi gravado literalmente, sem executar |  |
-| APROVADO | Tabelas paciente e funcionario continuam existindo |  |
+| APROVADO | Tabelas recurso e usuario continuam existindo |  |
 
 ## 3. Injeção de HTML / XSS
 
 | Resultado | Verificação | Detalhe |
 |---|---|---|
 | APROVADO | Formulário público recusa 8 cargas de HTML | 8/8 |
-| APROVADO | Cadastro de paciente recusa HTML em nome e observações | 8/8 |
-| APROVADO | Cadastro de funcionário recusa HTML | status 400 |
+| APROVADO | Cadastro recusa HTML no nome do local e na unidade da pessoa | 8/8 |
+| APROVADO | Cadastro de visitante recusa HTML | status 400 |
 | APROVADO | Páginas de erro não refletem o que foi digitado na URL |  |
 | APROVADO | Front-end sem pontos perigosos (4 arquivos analisados) |  |
 
@@ -63,37 +63,39 @@ Executado em 25/11/2026, 10:57:26 contra `https://localhost`.
 |---|---|---|
 | ALERTA | ptrace_scope (Yama) restringe a leitura da memória por outros processos | valor 0: qualquer processo do mesmo usuário pode ler a memória do servidor (ver README) |
 | APROVADO | Senha inicial não está no ambiente do processo (/proc/PID/environ) | use ADMIN_PASSWORD_FILE |
-| APROVADO | senha em texto não encontrado(a) na memória do servidor |  |
+| ALERTA | senha em texto encontrado(a) na memória do servidor (2 ocorrência/s) | resíduo da requisição até o coletor de lixo; mitigue com ptrace_scope ≥ 1, usuário dedicado e contêiner |
 | APROVADO | cookie de sessão (token cru) não encontrado(a) na memória do servidor |  |
 
 ## 6. Criptografia dos dados guardados (em repouso)
 
 | Resultado | Verificação | Detalhe |
 |---|---|---|
-| PULADO | Testes de criptografia em repouso | o servidor testado pode estar em outra máquina ou contêiner: defina DB_PATH com uma cópia legível do banco |
+| APROVADO | CPF e telefone do visitante NÃO aparecem em texto puro no arquivo do banco |  |
+| APROVADO | Os campos estão gravados no formato cifrado (AES-256-GCM, enc:v1) |  |
+| ALERTA | O nome do visitante fica legível no arquivo do banco | necessário para a busca por nome; proteja o disco com criptografia (EBS/KMS) |
+| APROVADO | Busca por CPF completo funciona (índice cego HMAC) |  |
+| APROVADO | A aplicação decifra corretamente ao ler (ida e volta) |  |
+| APROVADO | Unicidade do CPF continua valendo com o CPF cifrado | status 409 |
+| APROVADO | Depois de excluir, nenhum resíduo do visitante fica no arquivo (secure_delete) |  |
+| APROVADO | Arquivo da chave de dados só é legível pelo dono (0600) | 0600 |
+| APROVADO | A chave de dados não está dentro do arquivo do banco |  |
 
 ## 7. Criptografia das comunicações (TLS)
 
 | Resultado | Verificação | Detalhe |
 |---|---|---|
-| APROVADO | Conexão usa TLS 1.2 ou 1.3 | TLSv1.3 |
-| APROVADO | Cifra autenticada (AEAD), com sigilo adiante | TLS_AES_128_GCM_SHA256 |
-| ALERTA | Certificado válido por mais de 14 dias | vence em 2026-11-26 |
-| ALERTA | Certificado de teste aceito (TLS_INSECURE=1) | em produção o certificado deve ser confiável (Let's Encrypt/ACM) |
-| APROVADO | HSTS ativo (navegador só volta por HTTPS) | max-age=63072000; includeSubDomains |
-| APROVADO | Proxy não revela nome/versão do servidor |  |
-| APROVADO | HTTP é redirecionado para HTTPS | status 308 |
+| PULADO | Testes de TLS | BASE_URL não é https; defina TLS_URL=https://... (e TLS_INSECURE=1 se o certificado for de teste) |
 
 ## 8. Força bruta e negação de serviço (DoS/DDoS na camada da aplicação)
 
 | Resultado | Verificação | Detalhe |
 |---|---|---|
 | APROVADO | Força bruta no login é bloqueada (429) | bloqueio na tentativa 9 |
-| APROVADO | Atende normalmente com 150 conexões ociosas abertas | status 200, 13 ms |
-| APROVADO | Slowloris (cabeçalho que nunca termina) é cortado pelo servidor | conexão encerrada em 10.0 s |
+| APROVADO | Atende normalmente com 150 conexões ociosas abertas | status 200, 3 ms |
+| APROVADO | Slowloris (cabeçalho que nunca termina) é cortado pelo servidor | conexão encerrada em 11.4 s |
 | APROVADO | Conexões ociosas que nunca enviam nada são fechadas pelo servidor | 150/150 fechadas |
-| APROVADO | Inundação de requisições é limitada (429 após o teto por minuto) | 265 bloqueadas de 400 |
-| APROVADO | As respostas 429 são rápidas (o servidor não gasta trabalho com o excesso) | 40 ms no pior caso |
-| APROVADO | Servidor volta ao normal depois da inundação | após 47 s |
+| APROVADO | Inundação de requisições é limitada (429 após o teto por minuto) | 270 bloqueadas de 400 |
+| APROVADO | As respostas 429 são rápidas (o servidor não gasta trabalho com o excesso) | 12 ms no pior caso |
+| APROVADO | Servidor volta ao normal depois da inundação | após 46 s |
 
 > Limites conhecidos: a verificação cobre a camada da aplicação. Um DDoS volumétrico (rede) só se resolve com CDN/WAF/proxy na frente; a leitura de memória por outro processo do mesmo usuário depende do sistema operacional (ptrace_scope), pois o JavaScript não consegue apagar com garantia strings já criadas.

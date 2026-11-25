@@ -10,7 +10,7 @@ services:
     environment:
       NODE_ENV: production
       TRUST_PROXY: "1"
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@sorridonto.local}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@aegislock.local}
       DATA_KEY_FILE: /run/secrets/data_key              # chave de criptografia dos dados (32 bytes, base64)
       ADMIN_PASSWORD_FILE: /run/secrets/admin_password  # usada só na primeira execução
     secrets: [data_key, admin_password]

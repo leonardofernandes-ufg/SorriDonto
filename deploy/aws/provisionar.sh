@@ -59,7 +59,7 @@ chown 10001:10001 secrets/data_key secrets/admin_password
 chmod 400 secrets/data_key secrets/admin_password
 cat > .env <<ENV
 DOMINIO=$DOMINIO
-ADMIN_EMAIL=admin@sorridonto.local
+ADMIN_EMAIL=admin@aegislock.local
 BASE_IMAGE=public.ecr.aws/docker/library/node:22-alpine
 CADDY_IMAGE=public.ecr.aws/docker/library/caddy:2.8.4-alpine
 ENV

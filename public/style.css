@@ -262,3 +262,19 @@ dialog h2 { font-size: 1.5rem; }
 .janela-app.uma-coluna { grid-template-columns: 1fr; min-height: 0; }
 .mock-main.solto { margin: 10px; border-radius: 14px; }
 .janela-app .mock-linha > span:last-child { white-space: nowrap; }
+
+/* painel AegisLock */
+.sub-cel { display: block; color: var(--muted); font-weight: 400; font-size: .82rem; line-height: 1.2; }
+.nome-cel { white-space: nowrap; }
+.dica { color: var(--muted); font-size: .8rem; }
+.campo select:disabled, .campo input:disabled { opacity: .65; }
+select.filtro { padding: .65em 1em; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--ink); font: inherit; }
+.portaria { margin-bottom: 8px; }
+.portaria-box { display: grid; grid-template-columns: 1fr 1fr auto; gap: 14px; align-items: end; }
+.portaria-box .campo { margin-bottom: 0; }
+.res-card { border-radius: 16px; padding: 18px 22px; font-weight: 700; font-size: 1.25rem; margin: 6px 0 18px; }
+.res-card small { display: block; font-weight: 500; font-size: .95rem; margin-top: 2px; }
+.res-ok { background: #e1f6ee; color: #0a5c3f; }
+.res-neg { background: #ffe6e3; color: #8a1c12; }
+@media (prefers-color-scheme: dark) { .res-ok { background: #12372c; color: #8be3bd; } .res-neg { background: #4a1d19; color: #ffb4aa; } }
+@media (max-width: 860px) { .portaria-box { grid-template-columns: 1fr; } }

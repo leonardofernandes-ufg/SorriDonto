@@ -1,7 +1,6 @@
-# SorriDonto – site e área administrativa
+# AegisLock – site e painel de portaria e controle de acesso
 
-Site de apresentação da clínica (`/`) e painel administrativo (`/admin`) para cadastro de
-funcionários e pacientes. Sem dependências externas: usa só o Node (>= 22.13) e o SQLite embutido.
+Site de apresentação (`/`) e painel (`/admin`) de um sistema de portaria para condomínios e empresas. Sem dependências externas: usa só o Node (>= 22.13) e o SQLite embutido.
 
 ## Como rodar
 
@@ -19,13 +18,32 @@ Variáveis opcionais: `PORT` (3000), `HOST` (127.0.0.1), `DATA_DIR` (pasta do ba
 `RATE_LIMIT_PER_MIN` (240), `MAX_CONNECTIONS` (500), `TRUST_PROXY` (1 atrás de proxy),
 `NODE_ENV=production` (cookie `Secure`; exige HTTPS na frente).
 
-## Perfis e permissões (menor privilégio)
+## Painel e perfis (cada pessoa vê só o que o seu perfil permite)
 
-| Perfil    | Pacientes                                  | Funcionários | Auditoria |
-|-----------|--------------------------------------------|--------------|-----------|
-| admin     | ver (CPF completo), criar, editar, excluir | tudo         | ver       |
-| recepcao  | ver (CPF mascarado na lista), criar, editar | —           | —         |
-| dentista  | somente ver (CPF mascarado na lista)       | —            | —         |
+O painel (`/admin`) segue o banco da equipe (grupo 4 – controle de acesso): `empresa`, `usuario`, `recurso`
+(lógico ou físico), `credencial` (crachá ou cartão), `autorizacao` e `tentativa`, mais `visitante` e `visita`.
+O login usa o e-mail da pessoa e a senha do cartão (credencial tipo T). Tudo é filtrado pela empresa da sessão.
+
+| Página | ADMIN | PORTEIRO | MORADOR |
+|---|---|---|---|
+| Visão geral (resumo do dia) | ✔ | ✔ | — |
+| Portaria (passar crachá: o sistema decide e registra) | ✔ | ✔ | — |
+| Registro de acessos (tentativas) | todos | todos | só os dele |
+| Visitas | tudo | autorizar, negar, marcar como realizada | agenda e cancela as dele |
+| Autorizações (liberação de acesso) | cria, suspende, revoga | só consulta | só as dele |
+| Visitantes (CPF e telefone cifrados) | cadastra, vê CPF, exclui | cadastra, CPF mascarado | — |
+| Pessoas (bloquear vale na hora) | cria, edita, bloqueia | só consulta | — |
+| Credenciais (crachá e cartão) | emite, redefine, revoga | — | — |
+| Locais e sistemas | cria, edita, exclui | só consulta | — |
+| Auditoria e Interessados | ✔ | — | — |
+
+**A decisão da catraca** (`POST /api/portaria/acesso`): confere se a pessoa está ATIVA e se existe uma
+autorização ATIVA, já iniciada e não vencida para aquele local físico. Sempre grava a tentativa, com o
+motivo da recusa (credencial desconhecida, usuário bloqueado, sem autorização, suspensa, vencida).
+
+Na primeira execução o sistema cria o administrador (`admin@aegislock.local`, ou `ADMIN_EMAIL`) e, por padrão,
+dados de demonstração de um condomínio fictício, com as contas de teste e as senhas **mostradas uma única vez**
+no terminal (`docker compose logs app` na AWS). `SEED_DEMO=0` cria só o administrador.
 
 ## Segurança
 

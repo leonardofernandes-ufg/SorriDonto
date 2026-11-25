@@ -34,10 +34,10 @@ const sha = (t) => crypto.createHash('sha256').update(t).digest('base64url');
 function criaSessao(f) {
   const token = crypto.randomBytes(32).toString('base64url');
   // Só o HASH do token fica na memória do servidor: um despejo de memória não revela cookies válidos.
-  const doUsuario = [...sessoes].filter(([, x]) => x.id === f.id_funcionario);
+  const doUsuario = [...sessoes].filter(([, x]) => x.id === f.id_usuario);
   if (doUsuario.length >= MAX_SESSOES_POR_USUARIO) sessoes.delete(doUsuario[0][0]);
   if (sessoes.size >= MAX_SESSOES) sessoes.delete(sessoes.keys().next().value);
-  sessoes.set(sha(token), { id: f.id_funcionario, nome: f.nome, perfil: f.perfil, expira: Date.now() + SESSION_MS });
+  sessoes.set(sha(token), { id: f.id_usuario, nome: f.nome, perfil: f.perfil, empresa: f.id_empresa, expira: Date.now() + SESSION_MS });
   return token;
 }
 function lerCookie(req, nome) {
@@ -53,6 +53,12 @@ function sessaoDe(req) {
   if (s.expira < Date.now()) { sessoes.delete(token); return null; }
   return { ...s, token };
 }
+/** Encerra as sessões de uma pessoa (bloqueio, troca de senha) ou só a sessão `soEsta` (logout). */
+function encerraSessoesDe(id, soEsta) {
+  if (soEsta) { sessoes.delete(soEsta); return; }
+  for (const [t, x] of sessoes) if (x.id === id) sessoes.delete(t);
+}
+const limpaTentativas = (chave) => tentativas.delete(chave);
 function cookieSessao(token, maxAge) {
   return `sid=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${PROD ? '; Secure' : ''}`;
 }
@@ -126,74 +132,7 @@ function cpfValido(c) {
 }
 const emailValido = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 160;
 
-function dadosPaciente(b) {
-  const nome = txt(b.nome, 120);
-  const cpf = so(b.cpf);
-  const telefone = so(b.telefone);
-  const email = txt(b.email, 160).toLowerCase();
-  const nasc = txt(b.data_nascimento, 10);
-  if (nome.length < 3) throw new Erro(400, 'Informe o nome completo.');
-  if (!cpfValido(cpf)) throw new Erro(400, 'CPF inválido.');
-  if (telefone && !/^\d{10,11}$/.test(telefone)) throw new Erro(400, 'Telefone deve ter DDD e 8 ou 9 dígitos.');
-  if (email && !emailValido(email)) throw new Erro(400, 'E-mail inválido.');
-  if (nasc) {
-    const dt = new Date(nasc + 'T00:00:00Z');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(nasc) || isNaN(dt) || dt > new Date() || dt.getUTCFullYear() < 1900)
-      throw new Erro(400, 'Data de nascimento inválida.');
-  }
-  return {
-    nome, cpf, telefone: telefone || null, email: email || null, data_nascimento: nasc || null,
-    cidade: txt(b.cidade, 80) || null, endereco: txt(b.endereco, 200) || null, observacoes: txt(b.observacoes, 1000) || null,
-  };
-}
-
-const PERFIS = ['admin', 'dentista', 'recepcao'];
-function dadosFuncionario(b, criando) {
-  const nome = txt(b.nome, 120);
-  const email = txt(b.email, 160).toLowerCase();
-  const perfil = txt(b.perfil, 20);
-  const telefone = so(b.telefone);
-  const senha = String(b.senha ?? '');
-  if (nome.length < 3) throw new Erro(400, 'Informe o nome completo.');
-  if (!emailValido(email)) throw new Erro(400, 'E-mail inválido.');
-  if (!PERFIS.includes(perfil)) throw new Erro(400, 'Perfil inválido.');
-  if (telefone && !/^\d{10,11}$/.test(telefone)) throw new Erro(400, 'Telefone deve ter DDD e 8 ou 9 dígitos.');
-  if (criando || senha) {
-    if (senha.length < 8 || senha.length > 128) throw new Erro(400, 'A senha deve ter de 8 a 128 caracteres.');
-  }
-  return {
-    nome, email, perfil, telefone: telefone || null, senha: senha || null,
-    cargo: txt(b.cargo, 80) || null, cro: txt(b.cro, 20) || null,
-  };
-}
-
-// ---------------------------------------------------------------- auditoria e permissões
-function audita(idFuncionario, acao, detalhe) {
-  db.prepare('INSERT INTO log_acesso (id_funcionario, acao, detalhe) VALUES (?, ?, ?)').run(idFuncionario ?? null, acao, detalhe ?? null);
-}
-function exige(sessao, ...perfis) {
-  if (!sessao) throw new Erro(401, 'Faça login para continuar.');
-  if (!perfis.includes(sessao.perfil)) throw new Erro(403, 'Seu perfil não tem permissão para esta ação.');
-}
 const mascaraCpf = (c) => `***.${c.slice(3, 6)}.***-**`;
-
-// ---------------------------------------------------------------- primeiro administrador
-// A senha inicial pode vir de ADMIN_PASSWORD_FILE (melhor: não fica em /proc/<pid>/environ) ou de
-// ADMIN_PASSWORD. Em ambos os casos o valor é retirado de process.env depois de lido.
-let senhaInicial = process.env.ADMIN_PASSWORD;
-if (!senhaInicial && process.env.ADMIN_PASSWORD_FILE) senhaInicial = fs.readFileSync(process.env.ADMIN_PASSWORD_FILE, 'utf8').trim();
-delete process.env.ADMIN_PASSWORD;
-function semeiaAdmin() {
-  if (db.prepare('SELECT COUNT(*) AS n FROM funcionario').get().n > 0) return;
-  const email = (process.env.ADMIN_EMAIL || 'admin@sorridonto.local').toLowerCase();
-  const gerada = !senhaInicial;
-  const senha = senhaInicial || crypto.randomBytes(9).toString('base64url');
-  db.prepare("INSERT INTO funcionario (nome, email, senha_hash, perfil, cargo) VALUES (?, ?, ?, 'admin', 'Administrador')")
-    .run('Administrador', email, hashSenha(senha));
-  console.log('\n  Primeiro acesso criado.');
-  console.log(`  E-mail: ${email}`);
-  console.log(gerada ? `  Senha:  ${senha}   (anote agora: não será exibida de novo)\n` : '  Senha:  definida por você (ADMIN_PASSWORD ou ADMIN_PASSWORD_FILE)\n');
-}
 
 // ---------------------------------------------------------------- API
 async function lerJson(req) {
@@ -217,198 +156,92 @@ async function lerJson(req) {
   return obj;
 }
 
-const colunasPaciente = 'id_paciente, nome, cpf, data_nascimento, telefone, email, cidade, endereco, observacoes, criado_em';
+const API = require('./api')({
+  db, cripto, Erro, txt, so, cpfValido, emailValido, mascaraCpf, lerJson, sessaoDe, criaSessao, cookieSessao,
+  encerraSessoesDe, hashSenha, confereSenha, HASH_FALSO, bloqueado, falhou, limpaTentativas, ipDe, SESSION_MS,
+});
 
-async function api(req, res, url) {
-  const { pathname } = url;
-  const metodo = req.method;
-  const s = sessaoDe(req);
-  let m;
+// ---------------------------------------------------------------- primeiro administrador e dados de demonstração
+// A senha inicial pode vir de ADMIN_PASSWORD_FILE (melhor: não fica em /proc/<pid>/environ) ou de
+// ADMIN_PASSWORD. Em ambos os casos o valor é retirado de process.env depois de lido.
+let senhaInicial = process.env.ADMIN_PASSWORD;
+if (!senhaInicial && process.env.ADMIN_PASSWORD_FILE) senhaInicial = fs.readFileSync(process.env.ADMIN_PASSWORD_FILE, 'utf8').trim();
+delete process.env.ADMIN_PASSWORD;
 
-  // --- autenticação
-  if (pathname === '/api/login' && metodo === 'POST') {
-    const b = await lerJson(req);
-    const email = txt(b.email, 160).toLowerCase();
-    const ip = ipDe(req);
-    const chave = `${ip}|${email}`;
-    if (bloqueado(chave) || bloqueado('loginip|' + ip, 30)) throw new Erro(429, 'Muitas tentativas. Aguarde 15 minutos.');
-    const f = db.prepare('SELECT * FROM funcionario WHERE email = ?').get(email);
-    const ok = confereSenha(String(b.senha ?? ''), f ? f.senha_hash : HASH_FALSO) && f && f.ativo === 1;
-    if (!ok) {
-      falhou(chave);
-      falhou('loginip|' + ip);
-      audita(f?.id_funcionario, 'LOGIN_FALHOU', email);
-      throw new Erro(401, 'E-mail ou senha incorretos.');
-    }
-    tentativas.delete(chave);
-    audita(f.id_funcionario, 'LOGIN', null);
-    res.setHeader('Set-Cookie', cookieSessao(criaSessao(f), SESSION_MS / 1000));
-    return { id: f.id_funcionario, nome: f.nome, perfil: f.perfil };
-  }
-  if (pathname === '/api/logout' && metodo === 'POST') {
-    if (s) { audita(s.id, 'LOGOUT', null); sessoes.delete(s.token); }
-    res.setHeader('Set-Cookie', cookieSessao('', 0));
-    return { ok: true };
-  }
-  if (pathname === '/api/me' && metodo === 'GET') {
-    exige(s, ...PERFIS);
-    return { id: s.id, nome: s.nome, perfil: s.perfil };
-  }
+function semeia() {
+  if (db.prepare('SELECT COUNT(*) AS n FROM usuario').get().n > 0) return;
+  const email = (process.env.ADMIN_EMAIL || 'admin@aegislock.local').toLowerCase();
+  const demo = process.env.SEED_DEMO !== '0';           // SEED_DEMO=0 cria só o administrador
+  const gerada = !senhaInicial;
+  const nova = () => crypto.randomBytes(9).toString('base64url');
+  const senhaAdmin = senhaInicial || nova();
+  const dia = API.hoje();
+  const mais = (n) => new Date(Date.now() + n * 86400000).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  const senhasDemo = [];
 
-  // --- interessados (formulário público da landing page)
-  if (pathname === '/api/interesse' && metodo === 'POST') {
-    const chave = `interesse|${ipDe(req)}`;
-    if (bloqueado(chave, 5)) throw new Erro(429, 'Você já enviou alguns pedidos. Tente novamente mais tarde.');
-    const b = await lerJson(req);
-    const nome = txt(b.nome, 120);
-    const email = txt(b.email, 160).toLowerCase();
-    if (nome.length < 3) throw new Erro(400, 'Informe seu nome.');
-    if (!emailValido(email)) throw new Erro(400, 'E-mail inválido.');
-    const clinica = txt(b.clinica, 120) || null;     // valida tudo ANTES de contar a tentativa
-    const mensagem = txt(b.mensagem, 500) || null;
-    falhou(chave, 60 * 60 * 1000);
-    db.prepare('INSERT INTO interesse (nome, email, clinica, mensagem) VALUES (?, ?, ?, ?)')
-      .run(nome, cripto.cifra(email, 'interesse.email'), clinica, cripto.cifra(mensagem, 'interesse.mensagem'));
-    return { ok: true };
-  }
-  if (pathname === '/api/interesse' && metodo === 'GET') {
-    exige(s, 'admin');
-    return db.prepare('SELECT id_interesse, nome, email, clinica, mensagem, criado_em FROM interesse ORDER BY id_interesse DESC LIMIT 200').all()
-      .map((i) => ({ ...i, email: cripto.decifra(i.email, 'interesse.email'), mensagem: cripto.decifra(i.mensagem, 'interesse.mensagem') }));
-  }
+  db.exec('BEGIN');
+  const emp = Number(db.prepare('INSERT INTO empresa (nome) VALUES (?)').run(process.env.EMPRESA_NOME || 'Residencial Jardim das Acácias').lastInsertRowid);
+  const pessoa = (nome, unidade, mail, perfil, situacao = 'ATIVO') =>
+    Number(db.prepare('INSERT INTO usuario (nome, unidade, situacao, id_empresa, email, perfil) VALUES (?, ?, ?, ?, ?, ?)').run(nome, unidade, situacao, emp, mail, perfil).lastInsertRowid);
+  const cred = (idu, tipo, senha) => {
+    const id = Number(db.prepare('INSERT INTO credencial (id_usuario, senha, tipo) VALUES (?, ?, ?)').run(idu, hashSenha(senha), tipo).lastInsertRowid);
+    db.prepare(tipo === 'C' ? 'INSERT INTO cracha (id_credencial) VALUES (?)' : 'INSERT INTO cartao (id_credencial) VALUES (?)').run(id);
+    return id;
+  };
+  const local = (nome, criticidade, tipo) => {
+    const id = Number(db.prepare('INSERT INTO recurso (id_empresa, nome, criticidade, tipo) VALUES (?, ?, ?, ?)').run(emp, nome, criticidade, tipo).lastInsertRowid);
+    db.prepare(tipo === 'F' ? 'INSERT INTO recurso_fisico (id_recurso) VALUES (?)' : 'INSERT INTO recurso_logico (id_recurso) VALUES (?)').run(id);
+    return id;
+  };
+  const libera = (idu, idr, inicio, fim = null) =>
+    db.prepare("INSERT INTO autorizacao (id_usuario, id_recurso, inicio, fim, situacao) VALUES (?, ?, ?, ?, 'ATIVA')").run(idu, idr, inicio, fim);
 
-  // --- pacientes
-  if (pathname === '/api/pacientes' && metodo === 'GET') {
-    exige(s, 'admin', 'dentista', 'recepcao');
-    const q = txt(url.searchParams.get('q'), 60);
-    const like = `%${q.replace(/[%_\\]/g, '\\$&')}%`;
-    // CPF e e-mail estão cifrados: a busca por eles é pelo valor COMPLETO, via índice cego (HMAC).
-    const dig = so(q);
-    const idxCpf = dig.length === 11 ? cripto.indice(dig, 'paciente.cpf') : null;
-    const idxEmail = emailValido(q.toLowerCase()) ? cripto.indice(q.toLowerCase(), 'paciente.email') : null;
-    const linhas = db.prepare(
-      `SELECT ${colunasPaciente} FROM paciente
-       WHERE nome LIKE ? ESCAPE '\\' OR cpf_idx = ? OR email_idx = ?
-       ORDER BY nome COLLATE NOCASE LIMIT 500`
-    ).all(like, idxCpf, idxEmail).map(db.doBanco);
-    return linhas.map((p) => (s.perfil === 'admin' ? p : { ...p, cpf: mascaraCpf(p.cpf), observacoes: undefined }));
+  const admin = pessoa('Administrador', 'Administração', email, 'ADMIN');
+  cred(admin, 'T', senhaAdmin);
+  const crAdmin = cred(admin, 'C', nova());
+  let demoCasos = [];
+  if (demo) {
+    const portaria = local('Portaria principal', 'ALTA', 'F');
+    const garagem = local('Portão da garagem', 'MEDIA', 'F');
+    const cameras = local('Sala de câmeras', 'ALTA', 'F');
+    local('Sistema de controle de acesso', 'ALTA', 'L');
+    local('Sistema de câmeras (CFTV)', 'ALTA', 'L');
+    const paulo = pessoa('Paulo Porteiro', 'Portaria', 'paulo@aegislock.local', 'PORTEIRO');
+    const ana = pessoa('Ana Moradora', 'Apto 101', 'ana@aegislock.local', 'MORADOR');
+    const carlos = pessoa('Carlos Morador', 'Apto 202', 'carlos@aegislock.local', 'MORADOR');
+    const davi = pessoa('Davi Morador', 'Apto 303', 'davi@aegislock.local', 'MORADOR', 'BLOQUEADO');
+    const sp = nova(); const sa = nova();
+    cred(paulo, 'T', sp); cred(ana, 'T', sa);
+    senhasDemo.push(['Paulo Porteiro (porteiro)', 'paulo@aegislock.local', sp], ['Ana Moradora (moradora)', 'ana@aegislock.local', sa]);
+    const cPaulo = cred(paulo, 'C', nova()); const cAna = cred(ana, 'C', nova());
+    const cCarlos = cred(carlos, 'C', nova()); const cDavi = cred(davi, 'C', nova());
+    for (const r of [portaria, garagem, cameras]) libera(admin, r, '2026-01-01');
+    libera(paulo, portaria, '2026-01-01'); libera(paulo, cameras, '2026-01-01');
+    libera(ana, portaria, '2026-01-01'); libera(ana, garagem, '2026-01-01');
+    libera(carlos, portaria, '2026-01-01'); libera(carlos, garagem, '2025-01-01', '2026-01-31');   // vencida
+    libera(davi, portaria, '2026-01-01');
+    const visitante = (nome, cpf, tel) => {
+      const c = db.cifraVisitante({ cpf, telefone: tel });
+      return Number(db.prepare('INSERT INTO visitante (id_empresa, nome, cpf, cpf_idx, telefone) VALUES (?, ?, ?, ?, ?)').run(emp, nome, c.cpf, c.cpf_idx, c.telefone).lastInsertRowid);
+    };
+    const v1 = visitante('Bruno Teixeira', '52998224725', '62977776666');
+    const v2 = visitante('Julia Martins', '11144477735', '62991112233');
+    db.prepare("INSERT INTO visita (id_empresa, id_visitante, id_anfitriao, id_recurso, data_prevista, status) VALUES (?, ?, ?, ?, ?, 'AUTORIZADA')").run(emp, v1, ana, portaria, `${dia}T15:00`);
+    db.prepare("INSERT INTO visita (id_empresa, id_visitante, id_anfitriao, id_recurso, data_prevista, status) VALUES (?, ?, ?, ?, ?, 'AGENDADA')").run(emp, v2, carlos, portaria, `${mais(1)}T16:30`);
+    demoCasos = [[cAna, portaria], [cAna, garagem], [cAna, cameras], [cCarlos, portaria], [cCarlos, garagem], [cDavi, portaria],
+      [cPaulo, portaria], [cPaulo, cameras], [999999, portaria], [crAdmin, cameras], [cAna, portaria], [cCarlos, portaria]];
   }
-  if (pathname === '/api/pacientes' && metodo === 'POST') {
-    exige(s, 'admin', 'recepcao');
-    const d = dadosPaciente(await lerJson(req));
-    try {
-      const c = db.paraBanco(d);
-      const r = db.prepare(
-        `INSERT INTO paciente (nome, cpf, cpf_idx, data_nascimento, telefone, email, email_idx, cidade, endereco, observacoes, criado_por)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(d.nome, c.cpf, c.cpf_idx, c.data_nascimento, c.telefone, c.email, c.email_idx, d.cidade, c.endereco, c.observacoes, s.id);
-      audita(s.id, 'PACIENTE_CRIADO', `id ${r.lastInsertRowid}`);
-      return { id_paciente: Number(r.lastInsertRowid) };
-    } catch (e) {
-      if (/UNIQUE/.test(e.message)) throw new Erro(409, 'Já existe um paciente com este CPF.');
-      throw e;
-    }
-  }
-  if ((m = pathname.match(/^\/api\/pacientes\/(\d+)$/))) {
-    const id = Number(m[1]);
-    if (metodo === 'GET') {
-      exige(s, 'admin', 'dentista', 'recepcao');
-      const p = db.prepare(`SELECT ${colunasPaciente} FROM paciente WHERE id_paciente = ?`).get(id);
-      if (!p) throw new Erro(404, 'Paciente não encontrado.');
-      audita(s.id, 'PACIENTE_LIDO', `id ${id}`);
-      return db.doBanco(p);
-    }
-    if (metodo === 'PUT') {
-      exige(s, 'admin', 'recepcao');
-      const d = dadosPaciente(await lerJson(req));
-      try {
-        const c = db.paraBanco(d);
-        const r = db.prepare(
-          `UPDATE paciente SET nome=?, cpf=?, cpf_idx=?, data_nascimento=?, telefone=?, email=?, email_idx=?, cidade=?, endereco=?, observacoes=?
-           WHERE id_paciente = ?`
-        ).run(d.nome, c.cpf, c.cpf_idx, c.data_nascimento, c.telefone, c.email, c.email_idx, d.cidade, c.endereco, c.observacoes, id);
-        if (!r.changes) throw new Erro(404, 'Paciente não encontrado.');
-      } catch (e) {
-        if (/UNIQUE/.test(e.message)) throw new Erro(409, 'Já existe um paciente com este CPF.');
-        throw e;
-      }
-      audita(s.id, 'PACIENTE_ALTERADO', `id ${id}`);
-      return { ok: true };
-    }
-    if (metodo === 'DELETE') {
-      exige(s, 'admin');
-      const r = db.prepare('DELETE FROM paciente WHERE id_paciente = ?').run(id);
-      if (!r.changes) throw new Erro(404, 'Paciente não encontrado.');
-      audita(s.id, 'PACIENTE_EXCLUIDO', `id ${id}`);
-      return { ok: true };
-    }
-  }
+  db.exec('COMMIT');
+  for (const [c, r] of demoCasos) API.decidirAcesso(emp, c, r);   // passagens de exemplo, decididas pela mesma regra da portaria
 
-  // --- funcionários (somente administrador)
-  const colunasFunc = 'id_funcionario, nome, email, perfil, cargo, cro, telefone, ativo, criado_em';
-  if (pathname === '/api/funcionarios' && metodo === 'GET') {
-    exige(s, 'admin');
-    return db.prepare(`SELECT ${colunasFunc} FROM funcionario ORDER BY nome COLLATE NOCASE`).all();
+  console.log('\n  Primeiro acesso criado.');
+  console.log(`  Administrador: ${email}`);
+  console.log(gerada ? `  Senha:         ${senhaAdmin}   (anote agora: não será exibida de novo)` : '  Senha:         definida por você (ADMIN_PASSWORD ou ADMIN_PASSWORD_FILE)');
+  if (demo) {
+    console.log('  Dados de demonstração criados (condomínio fictício). Contas de teste:');
+    for (const [quem, mail, sen] of senhasDemo) console.log(`    ${quem}: ${mail}  senha ${sen}`);
   }
-  if (pathname === '/api/funcionarios' && metodo === 'POST') {
-    exige(s, 'admin');
-    const d = dadosFuncionario(await lerJson(req), true);
-    try {
-      const r = db.prepare('INSERT INTO funcionario (nome, email, senha_hash, perfil, cargo, cro, telefone) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .run(d.nome, d.email, hashSenha(d.senha), d.perfil, d.cargo, d.cro, d.telefone);
-      audita(s.id, 'FUNCIONARIO_CRIADO', `id ${r.lastInsertRowid} (${d.perfil})`);
-      return { id_funcionario: Number(r.lastInsertRowid) };
-    } catch (e) {
-      if (/UNIQUE/.test(e.message)) throw new Erro(409, 'Já existe um funcionário com este e-mail.');
-      throw e;
-    }
-  }
-  if ((m = pathname.match(/^\/api\/funcionarios\/(\d+)$/))) {
-    const id = Number(m[1]);
-    exige(s, 'admin');
-    const atual = db.prepare('SELECT * FROM funcionario WHERE id_funcionario = ?').get(id);
-    if (!atual) throw new Erro(404, 'Funcionário não encontrado.');
-    if (metodo === 'GET') return db.prepare(`SELECT ${colunasFunc} FROM funcionario WHERE id_funcionario = ?`).get(id);
-    if (metodo === 'PUT') {
-      const b = await lerJson(req);
-      const d = dadosFuncionario(b, false);
-      const ativo = b.ativo === undefined ? atual.ativo : (b.ativo ? 1 : 0);
-      const deixaDeSerAdminAtivo = atual.perfil === 'admin' && atual.ativo === 1 && (d.perfil !== 'admin' || ativo === 0);
-      if (deixaDeSerAdminAtivo) {
-        if (id === s.id) throw new Erro(400, 'Você não pode remover seu próprio acesso de administrador.');
-        const outros = db.prepare("SELECT COUNT(*) AS n FROM funcionario WHERE perfil='admin' AND ativo=1 AND id_funcionario <> ?").get(id).n;
-        if (!outros) throw new Erro(400, 'É preciso manter ao menos um administrador ativo.');
-      }
-      try {
-        db.prepare('UPDATE funcionario SET nome=?, email=?, perfil=?, cargo=?, cro=?, telefone=?, ativo=? WHERE id_funcionario = ?')
-          .run(d.nome, d.email, d.perfil, d.cargo, d.cro, d.telefone, ativo, id);
-      } catch (e) {
-        if (/UNIQUE/.test(e.message)) throw new Erro(409, 'Já existe um funcionário com este e-mail.');
-        throw e;
-      }
-      if (d.senha) db.prepare('UPDATE funcionario SET senha_hash = ? WHERE id_funcionario = ?').run(hashSenha(d.senha), id);
-      // encerra sessões abertas se o acesso foi desativado ou a senha trocada
-      for (const [t, x] of sessoes) {
-        if (x.id !== id) continue;
-        if (!ativo || d.senha) sessoes.delete(t);
-        else x.perfil = d.perfil;
-      }
-      audita(s.id, 'FUNCIONARIO_ALTERADO', `id ${id}${d.senha ? ' (senha redefinida)' : ''}`);
-      return { ok: true };
-    }
-  }
-
-  // --- auditoria
-  if (pathname === '/api/auditoria' && metodo === 'GET') {
-    exige(s, 'admin');
-    return db.prepare(
-      `SELECT l.id_log, l.momento, l.acao, l.detalhe, f.nome AS funcionario
-       FROM log_acesso l LEFT JOIN funcionario f USING (id_funcionario)
-       ORDER BY l.id_log DESC LIMIT 200`
-    ).all();
-  }
-
-  throw new Erro(404, 'Rota não encontrada.');
+  console.log('');
 }
 
 // ---------------------------------------------------------------- arquivos estáticos
@@ -460,7 +293,7 @@ const servidor = http.createServer({ maxHeaderSize: 16 * 1024, connectionsChecki
     limiteGeral(req, res);
     if (url.pathname.startsWith('/api/')) {
       res.setHeader('Cache-Control', 'no-store');
-      const corpo = await api(req, res, url);
+      const corpo = await API.handler(req, res, url);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(corpo));
     } else {
@@ -498,7 +331,5 @@ servidor.on('clientError', (err, socket) => {
 });
 process.on('unhandledRejection', (e) => console.error('Promessa rejeitada:', e));
 
-const migrados = db.migraCriptografia();
-if (migrados) console.log(`  Criptografia: ${migrados} registro(s) antigos foram cifrados e o arquivo do banco foi reescrito.`);
-semeiaAdmin();
-servidor.listen(PORT, HOST, () => console.log(`SorriDonto em http://${HOST}:${PORT}  (área administrativa: /admin)`));
+semeia();
+servidor.listen(PORT, HOST, () => console.log(`AegisLock em http://${HOST}:${PORT}  (área administrativa: /admin)`));
