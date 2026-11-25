@@ -1,8 +1,8 @@
 # Relatório de verificação de segurança – SorriDonto
 
-Executado em 25/11/2026, 10:51:21 contra `http://127.0.0.1:3000`.
+Executado em 25/11/2026, 10:57:26 contra `https://localhost`.
 
-**52 aprovados · 0 falharam · 7 alertas · 0 pulados**
+**47 aprovados · 0 falharam · 3 alertas · 1 pulados**
 
 
 ## 1. Cabeçalhos HTTP e cookies
@@ -18,7 +18,7 @@ Executado em 25/11/2026, 10:51:21 contra `http://127.0.0.1:3000`.
 | APROVADO | Método TRACE recusado | status 405 |
 | APROVADO | Cookie de sessão é HttpOnly (JavaScript não lê) |  |
 | APROVADO | Cookie de sessão é SameSite=Strict (protege contra CSRF) |  |
-| ALERTA | Cookie de sessão é Secure | só ativa com NODE_ENV=production atrás de HTTPS |
+| APROVADO | Cookie de sessão é Secure | só ativa com NODE_ENV=production atrás de HTTPS |
 
 ## 2. SQL injection
 
@@ -27,7 +27,7 @@ Executado em 25/11/2026, 10:51:21 contra `http://127.0.0.1:3000`.
 | APROVADO | Login resiste a 12 cargas de SQL injection (e-mail e senha) |  |
 | APROVADO | Busca trata 7 cargas como texto comum (nenhuma linha a mais que o normal) |  |
 | APROVADO | Nenhum hash de senha aparece nas respostas |  |
-| APROVADO | Injeção por tempo (randomblob) não atrasa a resposta | 4 ms |
+| APROVADO | Injeção por tempo (randomblob) não atrasa a resposta | 5 ms |
 | APROVADO | ID na URL só aceita números (outros valores dão 404) |  |
 | APROVADO | Cadastro aceita aspas e ponto e vírgula como texto | status 200 |
 | APROVADO | O texto foi gravado literalmente, sem executar |  |
@@ -63,22 +63,14 @@ Executado em 25/11/2026, 10:51:21 contra `http://127.0.0.1:3000`.
 |---|---|---|
 | ALERTA | ptrace_scope (Yama) restringe a leitura da memória por outros processos | valor 0: qualquer processo do mesmo usuário pode ler a memória do servidor (ver README) |
 | APROVADO | Senha inicial não está no ambiente do processo (/proc/PID/environ) | use ADMIN_PASSWORD_FILE |
-| ALERTA | senha em texto encontrado(a) na memória do servidor (1 ocorrência/s) | resíduo da requisição até o coletor de lixo; mitigue com ptrace_scope ≥ 1, usuário dedicado e contêiner |
-| ALERTA | cookie de sessão (token cru) encontrado(a) na memória do servidor (4 ocorrência/s) | resíduo da requisição até o coletor de lixo; mitigue com ptrace_scope ≥ 1, usuário dedicado e contêiner |
+| APROVADO | senha em texto não encontrado(a) na memória do servidor |  |
+| APROVADO | cookie de sessão (token cru) não encontrado(a) na memória do servidor |  |
 
 ## 6. Criptografia dos dados guardados (em repouso)
 
 | Resultado | Verificação | Detalhe |
 |---|---|---|
-| APROVADO | CPF, telefone, e-mail, endereço, observações e nascimento NÃO aparecem em texto puro no arquivo do banco |  |
-| APROVADO | Os campos estão gravados no formato cifrado (AES-256-GCM, enc:v1) |  |
-| ALERTA | O nome do paciente fica legível no arquivo do banco | necessário para a busca por nome; proteja o disco com criptografia (EBS/KMS) |
-| APROVADO | A aplicação decifra corretamente ao ler (ida e volta) |  |
-| APROVADO | Busca por CPF e por e-mail completos funciona (índice cego HMAC) |  |
-| APROVADO | Unicidade do CPF continua valendo com o CPF cifrado | status 409 |
-| APROVADO | Depois de excluir, nenhum resíduo do paciente fica no arquivo (secure_delete) |  |
-| APROVADO | Arquivo da chave de dados só é legível pelo dono (0600) | 0600 |
-| APROVADO | A chave de dados não está dentro do arquivo do banco |  |
+| PULADO | Testes de criptografia em repouso | o servidor testado pode estar em outra máquina ou contêiner: defina DB_PATH com uma cópia legível do banco |
 
 ## 7. Criptografia das comunicações (TLS)
 
@@ -97,11 +89,11 @@ Executado em 25/11/2026, 10:51:21 contra `http://127.0.0.1:3000`.
 | Resultado | Verificação | Detalhe |
 |---|---|---|
 | APROVADO | Força bruta no login é bloqueada (429) | bloqueio na tentativa 9 |
-| APROVADO | Atende normalmente com 150 conexões ociosas abertas | status 200, 6 ms |
-| APROVADO | Slowloris (cabeçalho que nunca termina) é cortado pelo servidor | conexão encerrada em 10.4 s |
+| APROVADO | Atende normalmente com 150 conexões ociosas abertas | status 200, 13 ms |
+| APROVADO | Slowloris (cabeçalho que nunca termina) é cortado pelo servidor | conexão encerrada em 10.0 s |
 | APROVADO | Conexões ociosas que nunca enviam nada são fechadas pelo servidor | 150/150 fechadas |
-| APROVADO | Inundação de requisições é limitada (429 após o teto por minuto) | 274 bloqueadas de 400 |
-| APROVADO | As respostas 429 são rápidas (o servidor não gasta trabalho com o excesso) | 14 ms no pior caso |
-| APROVADO | Servidor volta ao normal depois da inundação | após 41 s |
+| APROVADO | Inundação de requisições é limitada (429 após o teto por minuto) | 265 bloqueadas de 400 |
+| APROVADO | As respostas 429 são rápidas (o servidor não gasta trabalho com o excesso) | 40 ms no pior caso |
+| APROVADO | Servidor volta ao normal depois da inundação | após 47 s |
 
 > Limites conhecidos: a verificação cobre a camada da aplicação. Um DDoS volumétrico (rede) só se resolve com CDN/WAF/proxy na frente; a leitura de memória por outro processo do mesmo usuário depende do sistema operacional (ptrace_scope), pois o JavaScript não consegue apagar com garantia strings já criadas.

@@ -44,6 +44,11 @@ function registra(nivel, nome, detalhe = '') {
   console.log(`  ${marca} ${nivel.padEnd(8)} ${nome}${detalhe ? '  → ' + detalhe : ''}`);
 }
 const ok = (cond, nome, detalhe, nivelSeFalhar = 'FALHOU') => registra(cond ? 'APROVADO' : nivelSeFalhar, nome, detalhe);
+// Conexão crua (TCP, ou TLS quando BASE_URL é https)
+const PORTA = Number(U.port) || (U.protocol === 'https:' ? 443 : 80);
+const conecta = () => (U.protocol === 'https:'
+  ? tls.connect({ host: U.hostname, port: PORTA, servername: U.hostname, rejectUnauthorized: process.env.TLS_INSECURE !== '1' })
+  : net.connect(PORTA, U.hostname));
 const dorme = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Respeita o limite do servidor: espera a janela de 1 minuto se estiver perto do teto.
@@ -69,8 +74,9 @@ async function req(caminho, opcoes = {}) {
 
 // Requisição crua por socket (para URLs e cabeçalhos que o fetch normalizaria ou recusaria).
 function bruto(dados, esperaMs = 1500) {
+  dados = dados.replace(/Host: x\r\n/, `Host: ${U.host}\r\n`);   // com proxy na frente, o Host precisa ser o do site
   return new Promise((resolve) => {
-    const s = net.connect(Number(U.port) || 80, U.hostname);
+    const s = conecta();
     let out = '';
     const fim = () => { s.destroy(); resolve(out); };
     s.setTimeout(esperaMs, fim);
@@ -309,6 +315,7 @@ async function repouso() {
   titulo('6. Criptografia dos dados guardados (em repouso)');
   const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'sorridonto.db');
   if (!cookie) return registra('PULADO', 'Testes de criptografia em repouso', 'sem login de teste');
+  if (process.env.BASE_URL && !process.env.DB_PATH) return registra('PULADO', 'Testes de criptografia em repouso', 'o servidor testado pode estar em outra máquina ou contêiner: defina DB_PATH com uma cópia legível do banco');
   if (!fs.existsSync(dbPath)) return registra('PULADO', 'Testes de criptografia em repouso', 'arquivo do banco não acessível daqui (rode no servidor ou defina DB_PATH)');
   const hex = crypto.randomBytes(5).toString('hex');
   const cpf = cpfAleatorio(), tel = '629' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0');
@@ -390,7 +397,7 @@ async function ddos() {
 
   // conexões ociosas em massa: o servidor deve continuar atendendo
   const ociosas = [];
-  for (let i = 0; i < 150; i++) { const s = net.connect(Number(U.port) || 80, U.hostname); s.on('error', () => {}); s.resume(); ociosas.push(s); }
+  for (let i = 0; i < 150; i++) { const s = conecta(); s.on('error', () => {}); s.resume(); ociosas.push(s); }
   await dorme(500);
   const r = await req('/', { semLimite: true });
   ok(r.status === 200, 'Atende normalmente com 150 conexões ociosas abertas', 'status ' + r.status + ', ' + r.ms + ' ms');
@@ -398,9 +405,9 @@ async function ddos() {
   // slowloris: cabeçalho incompleto que nunca termina
   const t0 = Date.now();
   const lento = await new Promise((resolve) => {
-    const s = net.connect(Number(U.port) || 80, U.hostname);
+    const s = conecta();
     s.resume();
-    s.on('connect', () => { s.write('GET / HTTP/1.1\r\nHost: x\r\nX-Lento: a\r\n'); });
+    s.on('connect', () => { s.write(`GET / HTTP/1.1\r\nHost: ${U.host}\r\nX-Lento: a\r\n`); });
     s.on('close', () => resolve(Date.now() - t0));
     s.on('error', () => resolve(Date.now() - t0));
     setTimeout(() => { s.destroy(); resolve(-1); }, 20000);

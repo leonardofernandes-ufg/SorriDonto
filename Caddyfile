@@ -4,6 +4,14 @@
 	email {$EMAIL_ACME}
 	servers {
 		protocols h1 h2 h3
+		# sem estes limites o Caddy aceita conexões lentas ou ociosas para sempre (slowloris)
+		timeouts {
+			read_header 10s
+			read_body 20s
+			write 30s
+			idle 2m
+		}
+		max_header_size 16KB
 	}
 }
 

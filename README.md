@@ -63,6 +63,13 @@ sh scripts/gerar-segredos.sh                          # cria secrets/data_key e 
 cp .env.example .env                                  # DOMINIO (use localhost para testar) e EMAIL_ACME
 docker compose up -d --build                          # app + Caddy com HTTPS automático
 ```
+Em Fedora/RHEL (SELinux ativo), rotule os segredos antes: `chcon -t container_file_t secrets/*`. Na AWS (Amazon Linux) não é preciso.
+Os arquivos de segredo precisam pertencer ao uid 10001 (`sudo chown 10001:10001 secrets/*`, modo 400).
+
+Testado: imagem construída, `docker compose` com Caddy em HTTPS (TLS 1.3), app em contêiner sem privilégios e com disco só de leitura,
+e a verificação de ataques passando pelo HTTPS. O teste mostrou que o Caddy precisa de timeouts de cabeçalho (já configurados no `Caddyfile`),
+senão aceita conexões lentas para sempre.
+
 Passo a passo para a AWS (KMS, Secrets Manager, EC2, S3, IAM, DDoS): [deploy/aws/DEPLOY-AWS.md](deploy/aws/DEPLOY-AWS.md).
 
 ### Verificação automática dos ataques
