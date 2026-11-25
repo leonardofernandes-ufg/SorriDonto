@@ -10,7 +10,7 @@ Internet ──HTTPS (TLS 1.2/1.3)──▶ EC2 ┬─ contêiner caddy  (certif
 ```
 
 > Nenhum comando abaixo foi executado por mim: não há credenciais da AWS nesta sessão. Eles criam recursos
-> que **geram custo** (EC2 `t3.small` ≈ US$ 15/mês, mais disco e IP). Troque `REGIAO`, `CONTA`, `DOMINIO` etc.
+> que **geram custo** (veja a estimativa em "Quanto custa", cerca de US$ 21/mês em São Paulo). Troque `REGIAO`, `CONTA`, `DOMINIO` etc.
 
 ## Por que Docker?
 
@@ -33,6 +33,23 @@ computador e na AWS. O Caddy fica na frente cuidando do HTTPS, e o app não exp�
 
 Limite honesto: com acesso ao servidor **e** à chave (por exemplo, root na EC2), os dados podem ser lidos.
 A criptografia protege contra roubo do disco, do backup ou de um snapshot, e contra vazamento do arquivo do banco.
+
+## Quanto custa (5 usuários por dia, região São Paulo, 24 h por dia)
+
+| Item | US$/mês |
+|---|---|
+| EC2 `t3.micro` (0,0168/h × 730 h) | 12,26 |
+| IPv4 público (0,005/h × 730 h) | 3,65 |
+| Disco EBS gp3 de 20 GB (*) | ≈ 3,00 |
+| Chave KMS (1,00) + 2 segredos no Secrets Manager (2 × 0,40) (*) | ≈ 1,80 |
+| Backups no S3 (poucos MB) e tráfego de saída (poucos MB/dia) | < 0,20 |
+| **Total** | **≈ 21 (cerca de R$ 115)** |
+
+Com `t3.small` o total sobe para ≈ US$ 33. Domínio e DNS ficam à parte (um `.com.br` custa algumas dezenas de reais por ano).
+Preços de EC2 e IPv4 conferidos em fontes públicas; os itens com (*) são de memória: confirme na
+[calculadora da AWS](https://calculator.aws/) com a região **sa-east-1 (São Paulo)**, que é cerca de 60% mais cara que a Virgínia,
+mas mantém os dados no Brasil. Contas com o *Free Tier* têm 750 h/mês grátis de IPv4 público nos primeiros 12 meses.
+Para 5 acessos por dia o uso de CPU e rede é desprezível: o custo é todo de "manter a máquina ligada".
 
 ## Passo a passo
 
@@ -72,7 +89,7 @@ chave e o nome do bucket) e anexe a política gerenciada `AmazonSSMManagedInstan
 
 ### 5. Rede e instância
 - **Security group**: entrada só nas portas **80** e **443** (TCP; 443 também UDP). **Não abra a 22**: use o *Session Manager* (SSM).
-- **EC2**: Amazon Linux 2023, `t3.small`, disco gp3 de 20 GB (cifrado pelo padrão do passo 1), **IMDSv2 obrigatório**
+- **EC2**: Amazon Linux 2023, `t3.micro` (1 GB basta para poucos usuários; use `t3.small` se crescer), disco gp3 de 20 GB (cifrado pelo padrão do passo 1), **IMDSv2 obrigatório**
   (`--metadata-options HttpTokens=required,HttpEndpoint=enabled`) e o perfil do passo 4.
 - **IP elástico** associado e um registro DNS **A** do seu domínio para ele (o Let's Encrypt precisa disso).
 
