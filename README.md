@@ -44,6 +44,27 @@ Rodar com os limites de memória e proteção de protótipo ligados: `npm start`
 | **Sessão** | Cookie `HttpOnly`, `SameSite=Strict` (e `Secure` em produção), 8 h, encerrado ao desativar o usuário. |
 | **Path traversal** | Só serve arquivos de `public/`; recusa `..`, dotfiles e bytes nulos. |
 
+### Criptografia
+
+- **Dados em repouso:** CPF, data de nascimento, telefone, e-mail, endereço e observações do paciente (e e-mail e
+  mensagem dos interessados) são cifrados com **AES-256-GCM** antes de ir para o banco. A chave (32 bytes) vem de
+  `DATA_KEY_FILE` (obrigatória em produção); em desenvolvimento é criada em `data/.chave-dados` (0600).
+  CPF e e-mail têm **índice cego** (HMAC-SHA256): a busca é pelo valor completo, e a unicidade do CPF continua valendo.
+  O nome fica legível para permitir busca por parte do nome; proteja o disco (EBS/KMS na AWS).
+  Bancos antigos, em texto puro, são migrados e reescritos (`VACUUM`) na primeira partida; `secure_delete` zera o que é apagado.
+- **Comunicações:** HTTPS (TLS 1.2/1.3) pelo proxy Caddy, HSTS, redirecionamento de HTTP, cookie `Secure`.
+- **Backups:** `node scripts/backup.js` gera um arquivo cifrado com a mesma chave; `node scripts/restaurar.js` restaura.
+- **Perca da chave = perda dos dados.** Guarde uma cópia em local seguro e separado.
+
+### Docker e AWS
+
+```bash
+sh scripts/gerar-segredos.sh                          # cria secrets/data_key e secrets/admin_password
+cp .env.example .env                                  # DOMINIO (use localhost para testar) e EMAIL_ACME
+docker compose up -d --build                          # app + Caddy com HTTPS automático
+```
+Passo a passo para a AWS (KMS, Secrets Manager, EC2, S3, IAM, DDoS): [deploy/aws/DEPLOY-AWS.md](deploy/aws/DEPLOY-AWS.md).
+
 ### Verificação automática dos ataques
 
 Com o servidor rodando, simule os ataques contra o próprio sistema (use só em ambiente local ou de teste):
@@ -52,8 +73,8 @@ Com o servidor rodando, simule os ataques contra o próprio sistema (use só em 
 TEST_EMAIL=admin@sorridonto.local TEST_SENHA='sua-senha' npm run verifica
 ```
 
-São 43 verificações em 6 grupos (cabeçalhos, SQL injection, HTML/XSS, injeção em memória, leitura de
-memória e DoS). Leva cerca de 2 minutos, por causa da inundação e do slowloris. O resultado fica em
+São 59 verificações em 8 grupos (cabeçalhos, SQL injection, HTML/XSS, injeção em memória, leitura de
+memória, criptografia em repouso, TLS e DoS). Leva cerca de 2 minutos, por causa da inundação e do slowloris. O resultado fica em
 [security/relatorio.md](security/relatorio.md); o comando sai com erro se algo falhar.
 `PULAR_DDOS=1` pula a parte de inundação.
 
@@ -72,9 +93,13 @@ memória e DoS). Leva cerca de 2 minutos, por causa da inundação e do slowlori
 
 ```
 server.js   rotas da API, sessões, permissões e arquivos estáticos
-db.js       esquema SQLite (funcionario, paciente, log_acesso)
+db.js       esquema SQLite (funcionario, paciente, interesse, log_acesso) e migração para dados cifrados
 public/     index.html (site), admin.html + admin.js (painel), style.css
 security/   verifica.js (simula os ataques) e relatorio.md (último resultado)
+cripto.js   AES-256-GCM, índice cego e cifra de backup
+scripts/    backup.js, restaurar.js, gerar-segredos.sh
+deploy/aws/ guia da AWS, scripts de instalação e backup, política IAM
+Dockerfile · docker-compose.yml · Caddyfile   contêineres e HTTPS
 data/       banco SQLite (ignorado pelo git)
 ```
 

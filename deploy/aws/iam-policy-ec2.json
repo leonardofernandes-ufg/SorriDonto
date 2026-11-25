@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LerSegredosDoApp",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": [
+        "arn:aws:secretsmanager:REGIAO:CONTA:secret:sorridonto/data-key-*",
+        "arn:aws:secretsmanager:REGIAO:CONTA:secret:sorridonto/admin-password-*"
+      ]
+    },
+    {
+      "Sid": "UsarAChaveKMS",
+      "Effect": "Allow",
+      "Action": ["kms:Decrypt", "kms:GenerateDataKey"],
+      "Resource": "arn:aws:kms:REGIAO:CONTA:key/ID-DA-CHAVE-KMS"
+    },
+    {
+      "Sid": "SoEnviarBackups",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject"],
+      "Resource": "arn:aws:s3:::NOME-DO-BUCKET/sorridonto/*"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const db = require('./db');
+const cripto = require('./cripto');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
@@ -267,12 +268,13 @@ async function api(req, res, url) {
     const mensagem = txt(b.mensagem, 500) || null;
     falhou(chave, 60 * 60 * 1000);
     db.prepare('INSERT INTO interesse (nome, email, clinica, mensagem) VALUES (?, ?, ?, ?)')
-      .run(nome, email, clinica, mensagem);
+      .run(nome, cripto.cifra(email, 'interesse.email'), clinica, cripto.cifra(mensagem, 'interesse.mensagem'));
     return { ok: true };
   }
   if (pathname === '/api/interesse' && metodo === 'GET') {
     exige(s, 'admin');
-    return db.prepare('SELECT id_interesse, nome, email, clinica, mensagem, criado_em FROM interesse ORDER BY id_interesse DESC LIMIT 200').all();
+    return db.prepare('SELECT id_interesse, nome, email, clinica, mensagem, criado_em FROM interesse ORDER BY id_interesse DESC LIMIT 200').all()
+      .map((i) => ({ ...i, email: cripto.decifra(i.email, 'interesse.email'), mensagem: cripto.decifra(i.mensagem, 'interesse.mensagem') }));
   }
 
   // --- pacientes
@@ -280,22 +282,26 @@ async function api(req, res, url) {
     exige(s, 'admin', 'dentista', 'recepcao');
     const q = txt(url.searchParams.get('q'), 60);
     const like = `%${q.replace(/[%_\\]/g, '\\$&')}%`;
+    // CPF e e-mail estão cifrados: a busca por eles é pelo valor COMPLETO, via índice cego (HMAC).
     const dig = so(q);
+    const idxCpf = dig.length === 11 ? cripto.indice(dig, 'paciente.cpf') : null;
+    const idxEmail = emailValido(q.toLowerCase()) ? cripto.indice(q.toLowerCase(), 'paciente.email') : null;
     const linhas = db.prepare(
       `SELECT ${colunasPaciente} FROM paciente
-       WHERE nome LIKE ? ESCAPE '\\' OR (? <> '' AND cpf LIKE ?) OR email LIKE ? ESCAPE '\\'
+       WHERE nome LIKE ? ESCAPE '\\' OR cpf_idx = ? OR email_idx = ?
        ORDER BY nome COLLATE NOCASE LIMIT 500`
-    ).all(like, dig, `%${dig}%`, like);
+    ).all(like, idxCpf, idxEmail).map(db.doBanco);
     return linhas.map((p) => (s.perfil === 'admin' ? p : { ...p, cpf: mascaraCpf(p.cpf), observacoes: undefined }));
   }
   if (pathname === '/api/pacientes' && metodo === 'POST') {
     exige(s, 'admin', 'recepcao');
     const d = dadosPaciente(await lerJson(req));
     try {
+      const c = db.paraBanco(d);
       const r = db.prepare(
-        `INSERT INTO paciente (nome, cpf, data_nascimento, telefone, email, cidade, endereco, observacoes, criado_por)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(d.nome, d.cpf, d.data_nascimento, d.telefone, d.email, d.cidade, d.endereco, d.observacoes, s.id);
+        `INSERT INTO paciente (nome, cpf, cpf_idx, data_nascimento, telefone, email, email_idx, cidade, endereco, observacoes, criado_por)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(d.nome, c.cpf, c.cpf_idx, c.data_nascimento, c.telefone, c.email, c.email_idx, d.cidade, c.endereco, c.observacoes, s.id);
       audita(s.id, 'PACIENTE_CRIADO', `id ${r.lastInsertRowid}`);
       return { id_paciente: Number(r.lastInsertRowid) };
     } catch (e) {
@@ -310,16 +316,17 @@ async function api(req, res, url) {
       const p = db.prepare(`SELECT ${colunasPaciente} FROM paciente WHERE id_paciente = ?`).get(id);
       if (!p) throw new Erro(404, 'Paciente não encontrado.');
       audita(s.id, 'PACIENTE_LIDO', `id ${id}`);
-      return p;
+      return db.doBanco(p);
     }
     if (metodo === 'PUT') {
       exige(s, 'admin', 'recepcao');
       const d = dadosPaciente(await lerJson(req));
       try {
+        const c = db.paraBanco(d);
         const r = db.prepare(
-          `UPDATE paciente SET nome=?, cpf=?, data_nascimento=?, telefone=?, email=?, cidade=?, endereco=?, observacoes=?
+          `UPDATE paciente SET nome=?, cpf=?, cpf_idx=?, data_nascimento=?, telefone=?, email=?, email_idx=?, cidade=?, endereco=?, observacoes=?
            WHERE id_paciente = ?`
-        ).run(d.nome, d.cpf, d.data_nascimento, d.telefone, d.email, d.cidade, d.endereco, d.observacoes, id);
+        ).run(d.nome, c.cpf, c.cpf_idx, c.data_nascimento, c.telefone, c.email, c.email_idx, d.cidade, c.endereco, c.observacoes, id);
         if (!r.changes) throw new Erro(404, 'Paciente não encontrado.');
       } catch (e) {
         if (/UNIQUE/.test(e.message)) throw new Erro(409, 'Já existe um paciente com este CPF.');
@@ -433,6 +440,7 @@ function estatico(req, res, pathname) {
 
 // ---------------------------------------------------------------- servidor
 const CABECALHOS = {
+  ...(PROD ? { 'Strict-Transport-Security': 'max-age=63072000; includeSubDomains' } : {}),
   'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
@@ -490,5 +498,7 @@ servidor.on('clientError', (err, socket) => {
 });
 process.on('unhandledRejection', (e) => console.error('Promessa rejeitada:', e));
 
+const migrados = db.migraCriptografia();
+if (migrados) console.log(`  Criptografia: ${migrados} registro(s) antigos foram cifrados e o arquivo do banco foi reescrito.`);
 semeiaAdmin();
 servidor.listen(PORT, HOST, () => console.log(`SorriDonto em http://${HOST}:${PORT}  (área administrativa: /admin)`));

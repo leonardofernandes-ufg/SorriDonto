@@ -216,7 +216,7 @@
     $('titulo-pagina').textContent = TITULOS[nova][0];
     $('subtitulo-pagina').textContent = TITULOS[nova][1];
     $('ferramentas').hidden = nova === 'auditoria' || nova === 'interessados';
-    $('busca').placeholder = nova === 'pacientes' ? 'Buscar por nome, CPF ou e-mail' : 'Buscar por nome ou e-mail';
+    $('busca').placeholder = nova === 'pacientes' ? 'Buscar por nome, CPF completo ou e-mail completo' : 'Buscar por nome ou e-mail';
     const novo = $('btn-novo');
     novo.textContent = nova === 'pacientes' ? '+ Novo paciente' : '+ Novo funcionário';
     novo.hidden = nova === 'auditoria' || nova === 'interessados' || (nova === 'pacientes' && !podeEditarPacientes());

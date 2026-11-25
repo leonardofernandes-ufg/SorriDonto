@@ -1,0 +1,37 @@
+# Proxy reverso: termina o TLS (HTTPS) com certificado automático da Let's Encrypt.
+# Em localhost o Caddy usa uma CA interna (o navegador avisa que não é confiável: é só para teste).
+{
+	email {$EMAIL_ACME}
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+{$DOMINIO} {
+	tls {
+		protocols tls1.2 tls1.3
+	}
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		-Server
+	}
+
+	# o app também limita o corpo a 64 KB; aqui o corte é antes de chegar nele
+	request_body {
+		max_size 128KB
+	}
+
+	reverse_proxy {$UPSTREAM:app:3000} {
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 20s
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

@@ -12,11 +12,15 @@
  *   RATE_LIMIT_PER_MIN  (o mesmo valor usado pelo servidor; padrão 240)
  *   SERVER_PID          (PID do servidor, para os testes de memória; se omitido, tenta achar)
  *   PULAR_DDOS=1        (pula inundação e slowloris, que levam ~1 minuto)
+ *   DB_PATH             (arquivo sorridonto.db, para checar a criptografia em repouso; padrão ../data/sorridonto.db)
+ *   TLS_URL / TLS_INSECURE=1 / TLS_HTTP_URL  (testa HTTPS do proxy; INSECURE aceita certificado de teste)
  *
  * Sai com código 1 se algum teste FALHAR. Gera security/relatorio.md.
  */
 const fs = require('fs');
 const net = require('net');
+const tls = require('tls');
+const https = require('https');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
@@ -299,9 +303,81 @@ async function memoria() {
   }
 }
 
+
+// ------------------------------------------------------------------ 7. criptografia em repouso
+async function repouso() {
+  titulo('6. Criptografia dos dados guardados (em repouso)');
+  const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'sorridonto.db');
+  if (!cookie) return registra('PULADO', 'Testes de criptografia em repouso', 'sem login de teste');
+  if (!fs.existsSync(dbPath)) return registra('PULADO', 'Testes de criptografia em repouso', 'arquivo do banco não acessível daqui (rode no servidor ou defina DB_PATH)');
+  const hex = crypto.randomBytes(5).toString('hex');
+  const cpf = cpfAleatorio(), tel = '629' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0');
+  const email = `seg${hex}@exemplo.com`, marcador = 'MARCADOR' + hex.toUpperCase();
+  const c = await req('/api/pacientes', { metodo: 'POST', auth: true, json: { nome: 'Teste Cifra ' + hex, cpf, telefone: tel, email, endereco: 'Rua ' + marcador, observacoes: 'obs ' + marcador, data_nascimento: '1985-03-17' } });
+  if (c.status !== 200) return registra('FALHOU', 'Cadastro de paciente de teste', 'status ' + c.status + ' ' + c.texto.slice(0, 80));
+  const id = JSON.parse(c.texto).id_paciente;
+  const lerTudo = () => ['', '-wal'].map((e) => { try { return fs.readFileSync(dbPath + e); } catch { return Buffer.alloc(0); } });
+  const bytes = Buffer.concat(lerTudo());
+  const procurados = { CPF: cpf, telefone: tel, 'e-mail': email, 'observações/endereço': marcador, 'data de nascimento': '1985-03-17' };
+  const achados = Object.entries(procurados).filter(([, v]) => bytes.includes(Buffer.from(v))).map(([k]) => k);
+  ok(achados.length === 0, 'CPF, telefone, e-mail, endereço, observações e nascimento NÃO aparecem em texto puro no arquivo do banco', achados.length ? 'em texto puro: ' + achados.join(', ') : '');
+  ok(bytes.includes(Buffer.from('enc:v1:')), 'Os campos estão gravados no formato cifrado (AES-256-GCM, enc:v1)');
+  registra('ALERTA', 'O nome do paciente fica legível no arquivo do banco', 'necessário para a busca por nome; proteja o disco com criptografia (EBS/KMS)');
+
+  const g = JSON.parse((await req('/api/pacientes/' + id, { auth: true })).texto);
+  ok(g.cpf === cpf && g.telefone === tel && g.email === email, 'A aplicação decifra corretamente ao ler (ida e volta)');
+  const porCpf = JSON.parse((await req('/api/pacientes?q=' + cpf, { auth: true })).texto);
+  const porEmail = JSON.parse((await req('/api/pacientes?q=' + encodeURIComponent(email), { auth: true })).texto);
+  ok(porCpf.some((p) => p.id_paciente === id) && porEmail.some((p) => p.id_paciente === id), 'Busca por CPF e por e-mail completos funciona (índice cego HMAC)');
+  const dup = await req('/api/pacientes', { metodo: 'POST', auth: true, json: { nome: 'Outro Nome', cpf } });
+  ok(dup.status === 409, 'Unicidade do CPF continua valendo com o CPF cifrado', 'status ' + dup.status);
+  await req('/api/pacientes/' + id, { metodo: 'DELETE', auth: true });
+  const depois = Buffer.concat(lerTudo());
+  ok(!depois.includes(Buffer.from(marcador)) && !depois.includes(Buffer.from(cpf)), 'Depois de excluir, nenhum resíduo do paciente fica no arquivo (secure_delete)');
+
+  const chave = path.join(path.dirname(dbPath), '.chave-dados');
+  if (fs.existsSync(chave)) ok((fs.statSync(chave).mode & 0o077) === 0, 'Arquivo da chave de dados só é legível pelo dono (0600)', '0' + (fs.statSync(chave).mode & 0o777).toString(8));
+  ok(!bytes.includes(Buffer.from(fs.existsSync(chave) ? fs.readFileSync(chave, 'utf8').trim() : 'sem-chave-local')), 'A chave de dados não está dentro do arquivo do banco');
+}
+
+// ------------------------------------------------------------------ 8. criptografia em trânsito
+function httpsCabecalhos(alvo, inseguro) {
+  return new Promise((resolve) => {
+    const r = https.request(alvo, { method: 'GET', rejectUnauthorized: !inseguro, timeout: 8000 }, (res) => { res.resume(); resolve({ status: res.statusCode, headers: res.headers }); });
+    r.on('error', (e) => resolve({ erro: e.message })); r.on('timeout', () => r.destroy()); r.end();
+  });
+}
+async function transito() {
+  titulo('7. Criptografia das comunicações (TLS)');
+  const alvo = process.env.TLS_URL || (U.protocol === 'https:' ? BASE : '');
+  if (!alvo) return registra('PULADO', 'Testes de TLS', 'BASE_URL não é https; defina TLS_URL=https://... (e TLS_INSECURE=1 se o certificado for de teste)');
+  const inseguro = process.env.TLS_INSECURE === '1';
+  const t = new URL(alvo);
+  const info = await new Promise((resolve) => {
+    const s = tls.connect({ host: t.hostname, port: Number(t.port) || 443, servername: t.hostname, rejectUnauthorized: !inseguro }, () => {
+      resolve({ proto: s.getProtocol(), cifra: s.getCipher(), cert: s.getPeerCertificate() }); s.end();
+    });
+    s.on('error', (e) => resolve({ erro: e.message })); s.setTimeout(8000, () => s.destroy());
+  });
+  if (info.erro) return registra('FALHOU', 'Conexão TLS', info.erro);
+  ok(['TLSv1.3', 'TLSv1.2'].includes(info.proto), 'Conexão usa TLS 1.2 ou 1.3', info.proto);
+  ok(/GCM|CHACHA20|TLS_AES/.test(info.cifra.name), 'Cifra autenticada (AEAD), com sigilo adiante', info.cifra.name);
+  const fim = info.cert && info.cert.valid_to ? new Date(info.cert.valid_to) : null;
+  if (fim) ok(fim - Date.now() > 14 * 86400000, 'Certificado válido por mais de 14 dias', 'vence em ' + fim.toISOString().slice(0, 10), 'ALERTA');
+  if (inseguro) registra('ALERTA', 'Certificado de teste aceito (TLS_INSECURE=1)', 'em produção o certificado deve ser confiável (Let\'s Encrypt/ACM)');
+  const h = await httpsCabecalhos(alvo, inseguro);
+  const hsts = (h.headers && h.headers['strict-transport-security']) || '';
+  ok(/max-age=(\d+)/.test(hsts) && Number(hsts.match(/max-age=(\d+)/)[1]) >= 31536000, 'HSTS ativo (navegador só volta por HTTPS)', hsts);
+  ok(!(h.headers && h.headers.server), 'Proxy não revela nome/versão do servidor');
+  if (process.env.TLS_HTTP_URL) {
+    const r = await fetch(process.env.TLS_HTTP_URL, { redirect: 'manual', signal: AbortSignal.timeout(8000) }).catch(() => ({ status: 0, headers: new Headers() }));
+    ok([301, 302, 307, 308].includes(r.status) && /^https:/.test(r.headers.get('location') || ''), 'HTTP é redirecionado para HTTPS', 'status ' + r.status);
+  } else registra('PULADO', 'Redirecionamento de HTTP para HTTPS', 'defina TLS_HTTP_URL=http://...');
+}
+
 // ------------------------------------------------------------------ 6. força bruta e negação de serviço
 async function ddos() {
-  titulo('6. Força bruta e negação de serviço (DoS/DDoS na camada da aplicação)');
+  titulo('8. Força bruta e negação de serviço (DoS/DDoS na camada da aplicação)');
   const falso = `forca-bruta-${crypto.randomBytes(3).toString('hex')}@teste.local`;
   let primeiro429 = 0;
   for (let i = 1; i <= 12; i++) {
@@ -381,6 +457,8 @@ function relatorio() {
   await xss();
   await injecao();
   await memoria();
+  await repouso();
+  await transito();
   await ddos();
   relatorio();
 })();
