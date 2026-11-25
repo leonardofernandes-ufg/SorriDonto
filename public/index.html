@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SorriDonto – Sistema de cadastro de pacientes para dentistas</title>
+  <meta name="description" content="SorriDonto: sistema web simples e seguro para dentistas cadastrarem pacientes e acessarem seus dados de qualquer lugar. Teste grátis por 14 dias.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="wrap">
+      <a class="logo" href="/" aria-label="SorriDonto – início">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5c-1.6 0-2.6.6-3.8.6C6 3.1 4 4.2 4 7.5c0 2.3 1 3.8 1.6 6 .5 2 .6 7 2.6 7 1.6 0 1.6-4 2.3-5.2.4-.7 1-.8 1.5-.8s1.1.1 1.5.8c.7 1.2.7 5.2 2.3 5.2 2 0 2.1-5 2.6-7 .6-2.2 1.6-3.7 1.6-6 0-3.3-2-4.4-4.2-4.4-1.2 0-2.2-.6-3.8-.6z"/></svg>
+        SorriDonto
+      </a>
+      <button class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu">Menu</button>
+      <nav class="menu" id="menu" aria-label="Principal">
+        <a href="#problema">Problema</a>
+        <a href="#funcionalidades">Funcionalidades</a>
+        <a href="#planos">Planos</a>
+        <a href="#seguranca">Segurança</a>
+        <a class="btn small ghost" href="/admin">Entrar</a>
+        <a class="btn small" href="#teste">Teste grátis</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. promessa -->
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <span class="selo">Para dentistas e pequenas clínicas</span>
+          <h1>Seus pacientes organizados em menos de um minuto por cadastro.</h1>
+          <p class="lead">O SorriDonto é um sistema web simples para cadastrar pacientes e acessar os dados deles de qualquer lugar, com controle de quem vê o quê e proteção conforme a LGPD. Sem instalação e sem função que você nunca vai usar.</p>
+          <div class="acoes">
+            <a class="btn" href="#teste">Testar grátis por 14 dias</a>
+            <a class="btn ghost" href="#demonstracao">Ver o sistema</a>
+          </div>
+          <p class="nota">Sem cartão de crédito. Cancele quando quiser.</p>
+        </div>
+        <div class="mock" role="img" aria-label="Ilustração do painel do SorriDonto com uma lista de pacientes fictícios">
+          <div class="mock-barra"><span></span><span></span><span></span><b>SorriDonto · Pacientes</b></div>
+          <div class="mock-corpo">
+            <div class="mock-busca">Buscar por nome ou CPF</div>
+            <div class="mock-linha cab"><span>Nome</span><span>CPF</span><span>Telefone</span></div>
+            <div class="mock-linha"><span>Ana Beatriz Lopes</span><span>***.482.***-**</span><span>(62) 9 9871-2040</span></div>
+            <div class="mock-linha"><span>Carlos Eduardo Reis</span><span>***.119.***-**</span><span>(62) 9 8123-7765</span></div>
+            <div class="mock-linha"><span>Marina Duarte</span><span>***.703.***-**</span><span>(62) 9 9344-0182</span></div>
+            <div class="mock-linha"><span>Paulo Henrique Souza</span><span>***.255.***-**</span><span>(62) 9 8450-3391</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. problema -->
+    <section id="problema">
+      <div class="wrap">
+        <div class="titulo">
+          <h2>O consultório ainda funciona na base do improviso?</h2>
+          <p>Muitos dentistas guardam fichas em papel e planilhas. Funciona, até o dia em que não funciona.</p>
+        </div>
+        <div class="grade">
+          <article class="card"><h3>Fichas espalhadas</h3><p>Dados de pacientes em papel, planilha e celular. Encontrar um telefone vira uma busca.</p></article>
+          <article class="card"><h3>Todo mundo vê tudo</h3><p>Sem perfis de acesso, a recepção enxerga o que só o dentista deveria, e ninguém sabe quem mexeu em quê.</p></article>
+          <article class="card"><h3>Risco com a LGPD</h3><p>Dados de saúde são sensíveis. Um vazamento ou uma planilha perdida pode custar caro à clínica e à confiança do paciente.</p></article>
+          <article class="card"><h3>Sistemas pesados e caros</h3><p>Os softwares completos custam mais, demoram a aprender e trazem módulos que o consultório pequeno não usa.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. funcionalidades -->
+    <section id="funcionalidades" class="alt">
+      <div class="wrap">
+        <div class="titulo">
+          <h2>Só o que o consultório precisa</h2>
+          <p>Poucas telas, rápidas de aprender, e o essencial muito bem feito.</p>
+        </div>
+        <div class="grade">
+          <article class="card">
+            <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.600-7 8-7s8 3 8 7"/></svg></div>
+            <h3>Cadastro de pacientes</h3><p>Nome, CPF, contato e observações, com validação de CPF e máscaras que evitam erro de digitação.</p>
+          </article>
+          <article class="card">
+            <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></div>
+            <h3>Busca instantânea</h3><p>Ache qualquer paciente por nome, CPF ou e-mail enquanto digita, no consultório ou em casa.</p>
+          </article>
+          <article class="card">
+            <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z"/></svg></div>
+            <h3>Perfis de acesso</h3><p>Administrador, dentista e recepção, cada um com as permissões certas. Quem sai da equipe perde o acesso na hora.</p>
+          </article>
+          <article class="card">
+            <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 5h10M9 12h10M9 19h10M4 5h.01M4 12h.01M4 19h.01"/></svg></div>
+            <h3>Histórico de ações</h3><p>Saiba quem cadastrou, alterou ou consultou cada ficha. A trilha de auditoria é feita pelo sistema, não à mão.</p>
+          </article>
+          <article class="card">
+            <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg></div>
+            <h3>Agenda e prontuário <span class="tag">em breve</span></h3><p>Agendamento de consultas e anotações clínicas com histórico de versões, nas próximas versões.</p>
+          </article>
+          <article class="card">
+            <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+            <h3>Funciona no navegador</h3><p>Nada para instalar. Acesse do computador, tablet ou celular.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. demonstração -->
+    <section id="demonstracao">
+      <div class="wrap dif">
+        <div>
+          <h2>Veja como é no dia a dia</h2>
+          <p>A recepção cadastra o paciente enquanto ele ainda está no balcão. O dentista consulta a ficha antes de chamá-lo. E o administrador acompanha tudo.</p>
+          <ul class="passos">
+            <li><strong>1. Cadastre.</strong> Preencha nome e CPF. O resto é opcional.</li>
+            <li><strong>2. Encontre.</strong> Digite parte do nome e a ficha aparece.</li>
+            <li><strong>3. Acompanhe.</strong> Veja no histórico quem fez cada alteração.</li>
+          </ul>
+          <p><a class="btn" href="#teste">Quero testar</a></p>
+        </div>
+        <div class="mock" role="img" aria-label="Ilustração do formulário de novo paciente com dados fictícios">
+          <div class="mock-barra"><span></span><span></span><span></span><b>Novo paciente</b></div>
+          <div class="mock-corpo">
+            <div class="mock-campo"><small>Nome completo</small><div>Marina Duarte</div></div>
+            <div class="mock-par">
+              <div class="mock-campo"><small>CPF</small><div>703.255.118-20</div></div>
+              <div class="mock-campo"><small>Telefone</small><div>(62) 99344-0182</div></div>
+            </div>
+            <div class="mock-campo"><small>E-mail</small><div>marina@exemplo.com</div></div>
+            <div class="mock-botoes"><span class="mock-bt claro">Cancelar</span><span class="mock-bt">Salvar</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="rodape-mock wrap">Imagens ilustrativas, com dados fictícios.</p>
+    </section>
+
+    <!-- 5. planos -->
+    <section id="planos" class="alt">
+      <div class="wrap">
+        <div class="titulo">
+          <h2>Planos simples, sem taxa de adesão</h2>
+          <p>Teste grátis por 14 dias em qualquer plano. Valores mensais.</p>
+        </div>
+        <div class="grade planos">
+          <article class="card plano">
+            <h3>Básico</h3>
+            <p class="preco"><span>R$</span> 69<small>/mês</small></p>
+            <p class="para">Para o dentista autônomo.</p>
+            <ul><li>1 dentista</li><li>Pacientes ilimitados</li><li>Busca e cadastro</li><li>Histórico de ações</li></ul>
+            <a class="btn ghost bloco" href="#teste">Testar grátis</a>
+          </article>
+          <article class="card plano destaque">
+            <span class="faixa">Mais escolhido</span>
+            <h3>Clínica</h3>
+            <p class="preco"><span>R$</span> 149<small>/mês</small></p>
+            <p class="para">Para clínicas com equipe.</p>
+            <ul><li>Até 5 usuários</li><li>Perfis: dentista, recepção, admin</li><li>CPF mascarado para a recepção</li><li>Trilha de auditoria completa</li></ul>
+            <a class="btn bloco" href="#teste">Testar grátis</a>
+          </article>
+          <article class="card plano">
+            <h3>Rede</h3>
+            <p class="preco"><span>R$</span> 269<small>/mês</small></p>
+            <p class="para">Para mais de uma unidade.</p>
+            <ul><li>Até 15 usuários</li><li>Várias unidades</li><li>Relatórios e exportação</li><li>Atendimento prioritário</li></ul>
+            <a class="btn ghost bloco" href="#teste">Testar grátis</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. segurança -->
+    <section id="seguranca">
+      <div class="wrap dif">
+        <div>
+          <h2>Dado de saúde pede cuidado de verdade</h2>
+          <p>A segurança não é um recurso extra: ela foi pensada desde o banco de dados. Cada pessoa da sua equipe acessa só o que precisa para trabalhar.</p>
+        </div>
+        <ul>
+          <li><span><strong>Menor privilégio.</strong> A recepção cadastra, mas não exclui nem vê o CPF completo; o dentista consulta.</span></li>
+          <li><span><strong>Senhas protegidas.</strong> Guardadas com criptografia forte; nunca em texto puro.</span></li>
+          <li><span><strong>Tudo registrado.</strong> Logins e alterações ficam na trilha de auditoria.</span></li>
+          <li><span><strong>Conforme a LGPD.</strong> Coleta mínima de dados, acesso restrito e backup testado.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 7. perguntas -->
+    <section class="alt">
+      <div class="wrap faq">
+        <h2>Perguntas frequentes</h2>
+        <details><summary>Preciso instalar alguma coisa?</summary><p>Não. O SorriDonto roda no navegador, em qualquer computador, tablet ou celular.</p></details>
+        <details><summary>E se eu cancelar?</summary><p>Você pode cancelar quando quiser e exportar os seus dados. Não há multa nem fidelidade.</p></details>
+        <details><summary>Meus pacientes ficam seguros?</summary><p>Sim. O acesso é por perfil, as senhas são criptografadas, as ações ficam registradas e fazemos backup com restauração testada.</p></details>
+        <details><summary>Esta página é uma versão final?</summary><p>É a apresentação do projeto da disciplina de Sistemas de Banco de Dados da UFG. O painel funciona de verdade, e os preços e planos fazem parte do plano de negócio da equipe.</p></details>
+      </div>
+    </section>
+
+    <!-- 8. chamada final -->
+    <section id="teste">
+      <div class="wrap dif">
+        <div>
+          <h2>Comece o teste grátis de 14 dias</h2>
+          <p>Deixe seus dados e a equipe do SorriDonto entra em contato para liberar o acesso. É sem compromisso.</p>
+        </div>
+        <form id="form-interesse" class="form-interesse" novalidate>
+          <div class="campo"><label for="i-nome">Seu nome *</label><input id="i-nome" name="nome" required maxlength="120" autocomplete="name"></div>
+          <div class="campo"><label for="i-email">E-mail *</label><input id="i-email" name="email" type="email" required maxlength="160" autocomplete="email"></div>
+          <div class="campo"><label for="i-clinica">Nome do consultório ou clínica</label><input id="i-clinica" name="clinica" maxlength="120" autocomplete="organization"></div>
+          <div class="campo"><label for="i-msg">Mensagem (opcional)</label><textarea id="i-msg" name="mensagem" maxlength="500"></textarea></div>
+          <p class="msg" id="interesse-msg" role="status"></p>
+          <button class="btn bloco" type="submit">Quero testar grátis</button>
+          <p class="nota">Usamos seus dados só para falar sobre o teste, conforme a LGPD.</p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="wrap">
+      <span>© <span id="ano">2026</span> SorriDonto Sistemas. Projeto da disciplina IIG0018 – Sistemas de Banco de Dados (UFG).</span>
+      <span>Equipe: Leonardo, Pedro Henrique, Sara, Darcia e Issabela</span>
+      <a href="/admin">Entrar no sistema</a>
+    </div>
+  </footer>
+  <script src="/main.js"></script>
+</body>
+</html>

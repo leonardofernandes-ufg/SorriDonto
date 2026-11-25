@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Área da clínica – SorriDonto</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- login -->
+  <main id="tela-login" hidden>
+    <form class="login-box" id="form-login" autocomplete="on">
+      <h1>SorriDonto</h1>
+      <p class="sub">Acesso restrito à equipe da clínica.</p>
+      <div class="campo"><label for="login-email">E-mail</label><input id="login-email" name="email" type="email" required autocomplete="username"></div>
+      <div class="campo"><label for="login-senha">Senha</label><input id="login-senha" name="senha" type="password" required autocomplete="current-password"></div>
+      <p class="msg" id="login-msg" role="alert"></p>
+      <button class="btn bloco" type="submit">Entrar</button>
+      <p class="centro"><a href="/">← Voltar ao site</a></p>
+    </form>
+  </main>
+
+  <!-- painel -->
+  <div id="tela-app" hidden>
+    <header class="barra">
+      <div class="wrap">
+        <a class="logo" href="/">SorriDonto</a>
+        <div class="usuario">
+          <span id="usuario-nome"></span>
+          <span class="tag" id="usuario-perfil"></span>
+          <button class="btn small ghost" id="btn-sair" type="button">Sair</button>
+        </div>
+      </div>
+    </header>
+    <main class="wrap">
+      <div class="abas" role="tablist" id="abas">
+        <button class="aba" role="tab" data-aba="pacientes" aria-selected="true">Pacientes</button>
+        <button class="aba" role="tab" data-aba="funcionarios" aria-selected="false" hidden>Funcionários</button>
+        <button class="aba" role="tab" data-aba="interessados" aria-selected="false" hidden>Interessados</button>
+        <button class="aba" role="tab" data-aba="auditoria" aria-selected="false" hidden>Auditoria</button>
+      </div>
+      <div class="ferramentas" id="ferramentas">
+        <input type="search" id="busca" placeholder="Buscar por nome, CPF ou e-mail" aria-label="Buscar">
+        <button class="btn" id="btn-novo" type="button">Novo</button>
+      </div>
+      <p class="msg" id="app-msg" role="status"></p>
+      <div class="tabela-wrap"><table id="tabela"></table></div>
+    </main>
+  </div>
+
+  <!-- formulário -->
+  <dialog id="dialogo">
+    <form id="form" method="dialog" novalidate>
+      <h2 id="dialogo-titulo"></h2>
+      <div id="campos" class="dois"></div>
+      <p class="msg" id="form-msg" role="alert"></p>
+      <div class="rod-dialogo">
+        <button class="btn ghost" type="button" id="btn-cancelar">Cancelar</button>
+        <button class="btn" type="submit" id="btn-salvar">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/admin.js"></script>
+</body>
+</html>
