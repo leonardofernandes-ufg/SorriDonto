@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SorriDonto – Sistema de cadastro de pacientes para dentistas</title>
-  <meta name="description" content="SorriDonto: sistema web simples e seguro para dentistas cadastrarem pacientes e acessarem seus dados de qualquer lugar. Teste grátis por 14 dias.">
+  <title>AegisLock – Sistema de portaria e controle de acesso</title>
+  <meta name="description" content="AegisLock: sistema web de portaria para condomínios e empresas. Saiba quem pode entrar, onde e quando, com registro confiável de cada passagem e proteção dos dados conforme a LGPD. Teste grátis por 14 dias.">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <header class="topo">
     <div class="wrap">
-      <a class="logo" href="/" aria-label="SorriDonto – início">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5c-1.6 0-2.6.6-3.8.6C6 3.1 4 4.2 4 7.5c0 2.3 1 3.8 1.6 6 .5 2 .6 7 2.6 7 1.6 0 1.6-4 2.3-5.2.4-.7 1-.8 1.5-.8s1.1.1 1.5.8c.7 1.2.7 5.2 2.3 5.2 2 0 2.1-5 2.6-7 .6-2.2 1.6-3.7 1.6-6 0-3.3-2-4.4-4.2-4.4-1.2 0-2.2-.6-3.8-.6z"/></svg>
-        SorriDonto
+      <a class="logo" href="/" aria-label="AegisLock – início">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 2.5 19.5 5.500v5.700c0 4.600-3.100 8.400-7.500 10.300-4.400-1.900-7.500-5.700-7.500-10.300V5.500z"/><rect x="8.800" y="10.800" width="6.400" height="5" rx="1"/><path d="M10 10.800V9.400a2 2 0 0 1 4 0v1.400"/></svg>
+        AegisLock
       </a>
       <button class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu">Menu</button>
       <nav class="menu" id="menu" aria-label="Principal">
@@ -30,36 +30,38 @@
     <!-- 1. promessa -->
     <section class="hero">
       <div class="wrap">
-        <svg class="hero-icone" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="1.4" stroke-linejoin="round" d="M12 2.5c-1.6 0-2.6.6-3.8.6C6 3.1 4 4.2 4 7.5c0 2.3 1 3.8 1.6 6 .5 2 .6 7 2.6 7 1.6 0 1.6-4 2.3-5.2.4-.7 1-.8 1.5-.8s1.1.1 1.5.8c.7 1.2.7 5.2 2.3 5.2 2 0 2.1-5 2.6-7 .6-2.2 1.6-3.7 1.6-6 0-3.3-2-4.4-4.2-4.4-1.2 0-2.2-.6-3.8-.6z"/></svg>
-        <h1>SorriDonto</h1>
-        <p class="lead">Cadastre pacientes em segundos e acesse tudo de qualquer lugar, com a segurança que dado de saúde exige.</p>
+        <svg class="hero-icone" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#fff" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"><path d="M12 2.5 19.5 5.500v5.700c0 4.600-3.100 8.400-7.500 10.300-4.400-1.900-7.500-5.700-7.500-10.300V5.500z"/><rect x="8.800" y="10.800" width="6.400" height="5" rx="1"/><path d="M10 10.800V9.400a2 2 0 0 1 4 0v1.400"/></svg>
+        <h1>AegisLock</h1>
+        <p class="lead">Quem entra, onde e quando: tudo sob controle. Portaria para condomínios e empresas, com regra de acesso por pessoa, local e horário, e registro confiável de cada passagem.</p>
         <div class="acoes">
           <a class="btn branco grande" href="#teste">Testar grátis</a>
           <a class="link" href="#como-funciona">Ver como funciona</a>
         </div>
         <p class="nota">14 dias grátis. Sem cartão de crédito.</p>
 
-        <div class="janela" role="img" aria-label="Ilustração do painel do SorriDonto com pacientes fictícios">
-          <div class="janela-barra"><i></i><i></i><i></i><span>app.sorridonto.com.br/pacientes</span></div>
+        <div class="janela" role="img" aria-label="Ilustração do painel do AegisLock com os acessos do dia, em dados fictícios">
+          <div class="janela-barra"><i></i><i></i><i></i><span>app.aegislock.com.br/acessos</span></div>
           <div class="janela-app">
             <div class="mock-lado">
-              <b>SorriDonto</b>
-              <span class="on">🦷 Pacientes</span>
-              <span>👥 Funcionários</span>
+              <b>AegisLock</b>
+              <span class="on">🚪 Acessos</span>
+              <span>👥 Pessoas</span>
+              <span>🔑 Credenciais</span>
+              <span>📍 Locais</span>
               <span>🧾 Auditoria</span>
             </div>
             <div class="mock-main">
-              <div class="mock-titulo">Pacientes <span class="mock-pill">+ Novo paciente</span></div>
+              <div class="mock-titulo">Acessos de hoje <span class="mock-pill">+ Nova permissão</span></div>
               <div class="mock-cartoes">
-                <div class="mock-cartao"><b>128</b>pacientes</div>
-                <div class="mock-cartao"><b>9</b>novos na semana</div>
-                <div class="mock-cartao"><b>3</b>pessoas na equipe</div>
+                <div class="mock-cartao"><b>248</b>passagens</div>
+                <div class="mock-cartao"><b>12</b>negadas</div>
+                <div class="mock-cartao"><b>3</b>visitas hoje</div>
               </div>
               <div class="mock-lista">
-                <div class="mock-linha cab"><span>Nome</span><span>CPF</span><span>Telefone</span></div>
-                <div class="mock-linha"><span>Ana Beatriz Lopes</span><span>***.482.***-**</span><span>(62) 9 9871-2040</span></div>
-                <div class="mock-linha"><span>Carlos Eduardo Reis</span><span>***.119.***-**</span><span>(62) 9 8123-7765</span></div>
-                <div class="mock-linha"><span>Marina Duarte</span><span>***.703.***-**</span><span>(62) 9 9344-0182</span></div>
+                <div class="mock-linha cab"><span>Pessoa</span><span>Local</span><span>Resultado</span></div>
+                <div class="mock-linha"><span>Ana Moradora</span><span>Portaria principal</span><span class="mock-ok">✓ Permitido</span></div>
+                <div class="mock-linha"><span>Carlos Morador</span><span>Portão da garagem</span><span class="mock-neg">✕ Permissão vencida</span></div>
+                <div class="mock-linha"><span>Davi Morador</span><span>Portaria principal</span><span class="mock-neg">✕ Usuário bloqueado</span></div>
               </div>
             </div>
           </div>
@@ -71,13 +73,13 @@
     <section id="como-funciona">
       <div class="wrap">
         <div class="titulo">
-          <h2>Cadastre uma vez. Encontre em segundos.</h2>
-          <p>Três passos e nada mais para configurar.</p>
+          <h2>Cadastre. Autorize. Acompanhe.</h2>
+          <p>Três passos para a portaria saber exatamente quem pode passar.</p>
         </div>
         <div class="grade">
-          <article class="card sombra"><span class="num">01</span><h3>Cadastre</h3><p>Nome e CPF bastam. O sistema valida o CPF e formata o telefone para você.</p></article>
-          <article class="card sombra"><span class="num">02</span><h3>Encontre</h3><p>Digite parte do nome, do CPF ou do e-mail e a ficha aparece enquanto você escreve.</p></article>
-          <article class="card sombra"><span class="num">03</span><h3>Acompanhe</h3><p>Cada cadastro, alteração e acesso fica registrado: você sabe quem fez o quê.</p></article>
+          <article class="card sombra"><span class="num">01</span><h3>Cadastre</h3><p>Moradores, funcionários e porteiros, cada um com a sua unidade, o seu perfil e uma credencial: crachá para a porta, cartão para o sistema.</p></article>
+          <article class="card sombra"><span class="num">02</span><h3>Autorize</h3><p>Defina em quais locais e em que horário cada pessoa pode entrar, e até quando vale a permissão. Visitas são agendadas pelo morador.</p></article>
+          <article class="card sombra"><span class="num">03</span><h3>Acompanhe</h3><p>Cada passagem é decidida pelo banco de dados e registrada, permitida ou negada, com o motivo. O registro não pode ser alterado nem apagado.</p></article>
         </div>
       </div>
     </section>
@@ -86,14 +88,14 @@
     <section class="alt">
       <div class="wrap">
         <div class="titulo">
-          <h2>O consultório ainda funciona na base do improviso?</h2>
-          <p>Fichas em papel e planilhas funcionam, até o dia em que não funcionam.</p>
+          <h2>Sua portaria ainda depende do caderno?</h2>
+          <p>Caderno e planilha funcionam, até o dia em que alguém precisa saber quem entrou.</p>
         </div>
         <div class="grade">
-          <article class="card"><div class="emoji tom-laranja">🗂️</div><h3>Fichas espalhadas</h3><p>Dados em papel, planilha e celular. Achar um telefone vira uma busca.</p></article>
-          <article class="card"><div class="emoji tom-roxo">👀</div><h3>Todo mundo vê tudo</h3><p>Sem perfis de acesso, a recepção enxerga o que só o dentista deveria.</p></article>
-          <article class="card"><div class="emoji tom-rosa">⚖️</div><h3>Risco com a LGPD</h3><p>Dado de saúde é sensível. Um vazamento custa caro e abala a confiança.</p></article>
-          <article class="card"><div class="emoji tom-ciano">💸</div><h3>Sistemas pesados e caros</h3><p>Softwares completos custam mais e trazem módulos que o consultório pequeno não usa.</p></article>
+          <article class="card"><div class="emoji tom-laranja">📒</div><h3>Registro que some</h3><p>Visitantes anotados à mão, sem como provar quem entrou, quando e para onde.</p></article>
+          <article class="card"><div class="emoji tom-roxo">🔓</div><h3>Acesso sem regra</h3><p>Quem tem chave entra em qualquer lugar, a qualquer hora, mesmo depois de sair do condomínio.</p></article>
+          <article class="card"><div class="emoji tom-rosa">⚖️</div><h3>Risco com a LGPD</h3><p>Documento e movimentação de pessoas são dados pessoais. Um caderno aberto na portaria é um vazamento esperando acontecer.</p></article>
+          <article class="card"><div class="emoji tom-ciano">💸</div><h3>Portaria cara ou pesada</h3><p>Portaria presencial custa muito, e sistemas com hardware próprio são caros e demorados para implantar.</p></article>
         </div>
       </div>
     </section>
@@ -102,22 +104,54 @@
     <section id="recursos">
       <div class="wrap">
         <div class="titulo">
-          <h2>Só o que o consultório precisa</h2>
-          <p>Poucas telas, rápidas de aprender, e o essencial muito bem feito.</p>
+          <h2>Tudo o que a portaria precisa</h2>
+          <p>Poucas telas, regras claras e um registro em que dá para confiar.</p>
         </div>
         <div class="grade">
-          <article class="card"><div class="emoji tom-azul">🧑‍⚕️</div><h3>Cadastro de pacientes</h3><p>Dados de contato e observações, com validação de CPF e máscaras contra erro de digitação.</p></article>
-          <article class="card"><div class="emoji tom-verde">🔎</div><h3>Busca instantânea</h3><p>Ache qualquer paciente por nome, CPF ou e-mail, no consultório ou em casa.</p></article>
-          <article class="card"><div class="emoji tom-roxo">🔐</div><h3>Perfis de acesso</h3><p>Administrador, dentista e recepção, cada um com as permissões certas.</p></article>
-          <article class="card"><div class="emoji tom-laranja">🧾</div><h3>Histórico de ações</h3><p>Trilha de auditoria feita pelo sistema, não à mão. Quem saiu da equipe perde o acesso na hora.</p></article>
-          <article class="card"><div class="emoji tom-rosa">📅</div><h3>Agenda e prontuário <span class="tag">em breve</span></h3><p>Agendamento e anotações clínicas com histórico de versões, nas próximas versões.</p></article>
-          <article class="card"><div class="emoji tom-ciano">🌐</div><h3>Direto no navegador</h3><p>Nada para instalar. Funciona no computador, no tablet e no celular, em tema claro ou escuro.</p></article>
+          <article class="card"><div class="emoji tom-azul">👥</div><h3>Pessoas e perfis</h3><p>Administrador, porteiro e morador, cada um vendo e fazendo só o que o seu perfil permite.</p></article>
+          <article class="card"><div class="emoji tom-verde">🔑</div><h3>Crachá e cartão</h3><p>Credenciais de acesso físico e lógico, com a senha guardada só como hash. Bloqueio imediato quando preciso.</p></article>
+          <article class="card"><div class="emoji tom-roxo">📍</div><h3>Locais e permissões</h3><p>Portaria, garagem, catraca e salas, cada um com um nível de criticidade e permissões por pessoa, horário e validade.</p></article>
+          <article class="card"><div class="emoji tom-laranja">🧑‍🤝‍🧑</div><h3>Visitantes e visitas</h3><p>O morador agenda a visita; a portaria confere o visitante com o documento mascarado e autoriza.</p></article>
+          <article class="card"><div class="emoji tom-rosa">🧾</div><h3>Registro e auditoria</h3><p>Entradas, saídas e negativas com motivo, e a trilha de quem alterou cadastros. Ninguém apaga, nem o administrador.</p></article>
+          <article class="card"><div class="emoji tom-ciano">🌐</div><h3>Direto no navegador</h3><p>Sem instalação. Funciona no computador e no celular, em tema claro ou escuro. Leitores de crachá entram por integração <span class="tag">em breve</span></p></article>
         </div>
       </div>
     </section>
 
-    <!-- 5. planos -->
-    <section id="planos" class="alt">
+    <!-- 5. demonstração -->
+    <section id="demonstracao" class="alt">
+      <div class="wrap dif">
+        <div>
+          <h2>A catraca consulta o banco, não a memória do porteiro</h2>
+          <p>Quando o crachá é lido, o sistema confere três coisas antes de liberar: se o usuário está ativo, se a permissão está dentro da validade e se o horário é o permitido. Em qualquer negativa, o motivo fica registrado.</p>
+          <ul class="passos">
+            <li><strong>Permitido.</strong> Usuário ativo, permissão vigente, dentro do horário.</li>
+            <li><strong>Negado: permissão vencida.</strong> A validade terminou e a porta não abre.</li>
+            <li><strong>Negado: usuário bloqueado.</strong> O bloqueio vale na hora, em todas as portas.</li>
+          </ul>
+          <p><a class="btn" href="#teste">Quero testar</a></p>
+        </div>
+        <div class="janela solta" role="img" aria-label="Ilustração da lista de permissões com dados fictícios">
+          <div class="janela-barra"><i></i><i></i><i></i><span>app.aegislock.com.br/permissoes</span></div>
+          <div class="janela-app uma-coluna">
+            <div class="mock-main solto">
+              <div class="mock-titulo">Permissões <span class="mock-pill">+ Nova</span></div>
+              <div class="mock-lista">
+                <div class="mock-linha cab"><span>Pessoa</span><span>Local</span><span>Válida até</span></div>
+                <div class="mock-linha"><span>Ana Moradora</span><span>Portaria principal</span><span>sem prazo</span></div>
+                <div class="mock-linha"><span>Ana Moradora</span><span>Portão da garagem</span><span>sem prazo</span></div>
+                <div class="mock-linha"><span>Carlos Morador</span><span>Portão da garagem</span><span class="mock-neg">31/01/2026</span></div>
+                <div class="mock-linha"><span>Paulo Porteiro</span><span>Sala de câmeras</span><span>sem prazo</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="rodape-mock wrap">Imagens ilustrativas, com dados fictícios.</p>
+    </section>
+
+    <!-- 6. planos -->
+    <section id="planos">
       <div class="wrap">
         <div class="titulo">
           <h2>Planos simples, sem taxa de adesão</h2>
@@ -125,69 +159,69 @@
         </div>
         <div class="grade planos">
           <article class="card plano">
-            <h3>Básico</h3>
-            <p class="preco"><span>R$</span>69<small>/mês</small></p>
-            <p>Para o dentista autônomo.</p>
-            <ul><li>1 dentista</li><li>Pacientes ilimitados</li><li>Busca e cadastro</li><li>Histórico de ações</li></ul>
+            <h3>Essencial</h3>
+            <p class="preco"><span>R$</span>149<small>/mês</small></p>
+            <p>Para condomínios e empresas pequenos.</p>
+            <ul><li>Até 50 usuários</li><li>1 portaria</li><li>Credenciais e permissões</li><li>Registro de passagens</li></ul>
             <a class="btn ghost bloco" href="#teste">Testar grátis</a>
           </article>
           <article class="card plano destaque">
             <span class="faixa">Mais escolhido</span>
-            <h3>Clínica</h3>
-            <p class="preco"><span>R$</span>149<small>/mês</small></p>
-            <p>Para clínicas com equipe.</p>
-            <ul><li>Até 5 usuários</li><li>Perfis: dentista, recepção, admin</li><li>CPF mascarado para a recepção</li><li>Trilha de auditoria completa</li></ul>
+            <h3>Condomínio</h3>
+            <p class="preco"><span>R$</span>349<small>/mês</small></p>
+            <p>Para condomínios médios, com garagem e várias portas.</p>
+            <ul><li>Até 300 usuários</li><li>Várias portarias e locais</li><li>Visitas e agendamento</li><li>Trilha de auditoria completa</li></ul>
             <a class="btn branco bloco" href="#teste">Testar grátis</a>
           </article>
           <article class="card plano">
-            <h3>Rede</h3>
-            <p class="preco"><span>R$</span>269<small>/mês</small></p>
-            <p>Para mais de uma unidade.</p>
-            <ul><li>Até 15 usuários</li><li>Várias unidades</li><li>Relatórios e exportação</li><li>Atendimento prioritário</li></ul>
+            <h3>Corporativo</h3>
+            <p class="preco"><span>R$</span>799<small>/mês</small></p>
+            <p>Para prédios comerciais e empresas com várias unidades.</p>
+            <ul><li>Até 1.500 usuários</li><li>Vários prédios</li><li>Exportação de dados</li><li>Atendimento prioritário</li></ul>
             <a class="btn ghost bloco" href="#teste">Testar grátis</a>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- 6. segurança -->
-    <section id="seguranca">
+    <!-- 7. segurança -->
+    <section id="seguranca" class="alt">
       <div class="wrap dif">
         <div>
-          <h2>Dado de saúde pede cuidado de verdade</h2>
-          <p>A segurança não é um recurso extra: ela foi pensada desde o banco de dados. Cada pessoa da sua equipe acessa só o que precisa para trabalhar.</p>
+          <h2>Quem protege a portaria precisa de um banco protegido</h2>
+          <p>A segurança foi pensada desde o banco de dados, não colocada por cima. Cada perfil faz só o que precisa, e os registros não podem ser adulterados.</p>
         </div>
         <ul>
-          <li><span><strong>Menor privilégio.</strong> A recepção cadastra, mas não exclui nem vê o CPF completo; o dentista consulta.</span></li>
-          <li><span><strong>Senhas protegidas.</strong> Guardadas com criptografia forte; nunca em texto puro.</span></li>
-          <li><span><strong>Tudo registrado.</strong> Logins e alterações ficam na trilha de auditoria.</span></li>
-          <li><span><strong>Conforme a LGPD.</strong> Coleta mínima de dados, acesso restrito e backup testado.</span></li>
+          <li><span><strong>Menor privilégio.</strong> O porteiro registra e consulta; só o administrador altera permissões. Nem o administrador lê as senhas.</span></li>
+          <li><span><strong>Registro imutável.</strong> As passagens e a auditoria só aceitam inserção; nem o dono do banco consegue apagá-las.</span></li>
+          <li><span><strong>Clientes isolados.</strong> Um condomínio nunca enxerga os dados de outro, por regra do próprio banco.</span></li>
+          <li><span><strong>Conforme a LGPD.</strong> Documento de visitante mascarado, retenção definida dos registros e backup testado.</span></li>
         </ul>
       </div>
     </section>
 
-    <!-- 7. perguntas -->
-    <section class="alt">
+    <!-- 8. perguntas -->
+    <section>
       <div class="wrap faq">
         <h2>Perguntas frequentes</h2>
-        <details><summary>Preciso instalar alguma coisa?</summary><p>Não. O SorriDonto roda no navegador, em qualquer computador, tablet ou celular.</p></details>
-        <details><summary>E se eu cancelar?</summary><p>Você pode cancelar quando quiser e exportar os seus dados. Não há multa nem fidelidade.</p></details>
-        <details><summary>Meus pacientes ficam seguros?</summary><p>Sim. O acesso é por perfil, as senhas são criptografadas, as ações ficam registradas e fazemos backup com restauração testada.</p></details>
-        <details><summary>Esta página é uma versão final?</summary><p>É a apresentação do projeto da disciplina de Sistemas de Banco de Dados da UFG. O painel funciona de verdade, e os preços e planos fazem parte do plano de negócio da equipe.</p></details>
+        <details><summary>Preciso comprar catracas ou leitores?</summary><p>O AegisLock cuida das regras e do registro. Para abrir portas fisicamente, ele se integra a leitores e catracas de parceiros; a integração está em desenvolvimento.</p></details>
+        <details><summary>E se a internet cair na portaria?</summary><p>O plano de contingência prevê uma lista de moradores autorizados no navegador do porteiro, com lançamento posterior dos acessos. Os leitores dos parceiros guardam uma fila local de eventos.</p></details>
+        <details><summary>Quanto tempo os registros ficam guardados?</summary><p>Por padrão, 12 meses, e depois são apagados, conforme a LGPD. O prazo pode ser definido por contrato.</p></details>
+        <details><summary>Esta página é uma versão final?</summary><p>É a apresentação do projeto da disciplina de Sistemas de Banco de Dados da UFG. O banco de dados, as permissões e a auditoria da portaria estão modelados e testados. O painel que está no ar ainda é o cadastro-base, e as telas da portaria estão em desenvolvimento.</p></details>
       </div>
     </section>
 
-    <!-- 8. chamada final -->
+    <!-- 9. chamada final -->
     <section id="teste" class="final">
       <div class="wrap dif">
         <div>
           <h2>Comece o teste grátis de 14 dias</h2>
-          <p>Deixe seus dados e a equipe do SorriDonto entra em contato para liberar o acesso. É sem compromisso.</p>
+          <p>Deixe seus dados e a equipe do AegisLock entra em contato para liberar o acesso. É sem compromisso.</p>
         </div>
         <form id="form-interesse" class="form-interesse" novalidate>
           <div class="campo"><label for="i-nome">Seu nome *</label><input id="i-nome" name="nome" required maxlength="120" autocomplete="name"></div>
           <div class="campo"><label for="i-email">E-mail *</label><input id="i-email" name="email" type="email" required maxlength="160" autocomplete="email"></div>
-          <div class="campo"><label for="i-clinica">Nome do consultório ou clínica</label><input id="i-clinica" name="clinica" maxlength="120" autocomplete="organization"></div>
+          <div class="campo"><label for="i-clinica">Nome do condomínio ou empresa</label><input id="i-clinica" name="clinica" maxlength="120" autocomplete="organization"></div>
           <div class="campo"><label for="i-msg">Mensagem (opcional)</label><textarea id="i-msg" name="mensagem" maxlength="500"></textarea></div>
           <p class="msg" id="interesse-msg" role="status"></p>
           <button class="btn bloco grande" type="submit">Quero testar grátis</button>
@@ -199,8 +233,8 @@
 
   <footer class="rodape">
     <div class="wrap">
-      <span>© <span id="ano">2026</span> SorriDonto Sistemas. Projeto da disciplina IIG0018 – Sistemas de Banco de Dados (UFG).</span>
-      <span>Equipe: Leonardo, Pedro Henrique, Sara, Dárcia e Issabela</span>
+      <span>© <span id="ano">2026</span> AegisLock Sistemas. Projeto da disciplina IIG0018 – Sistemas de Banco de Dados (UFG).</span>
+      <span>Equipe: Leonardo, Pedro Henrique, Sara, Dárcia e Isabella</span>
       <a href="/admin">Entrar no sistema</a>
     </div>
   </footer>

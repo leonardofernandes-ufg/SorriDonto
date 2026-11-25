@@ -254,3 +254,11 @@ dialog h2 { font-size: 1.5rem; }
   .dois { grid-template-columns: 1fr; }
 }
 .nome-cel { white-space: nowrap; }
+
+/* demonstrações da landing (AegisLock) */
+.mock-ok { color: #12805c; font-weight: 700; }
+.mock-neg { color: #b42318; font-weight: 700; }
+.janela.solta { margin-top: 0; border-radius: 16px; }
+.janela-app.uma-coluna { grid-template-columns: 1fr; min-height: 0; }
+.mock-main.solto { margin: 10px; border-radius: 14px; }
+.janela-app .mock-linha > span:last-child { white-space: nowrap; }
