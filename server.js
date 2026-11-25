@@ -26,10 +26,17 @@ function confereSenha(senha, armazenada) {
 const HASH_FALSO = hashSenha(crypto.randomBytes(8).toString('hex')); // iguala o tempo de login com e-mail inexistente
 
 // ---------------------------------------------------------------- sessões
-const sessoes = new Map(); // token -> { id, nome, perfil, expira }
+const sessoes = new Map(); // sha256(token) -> { id, nome, perfil, expira }
+const MAX_SESSOES = 2000;
+const MAX_SESSOES_POR_USUARIO = 5;
+const sha = (t) => crypto.createHash('sha256').update(t).digest('base64url');
 function criaSessao(f) {
   const token = crypto.randomBytes(32).toString('base64url');
-  sessoes.set(token, { id: f.id_funcionario, nome: f.nome, perfil: f.perfil, expira: Date.now() + SESSION_MS });
+  // Só o HASH do token fica na memória do servidor: um despejo de memória não revela cookies válidos.
+  const doUsuario = [...sessoes].filter(([, x]) => x.id === f.id_funcionario);
+  if (doUsuario.length >= MAX_SESSOES_POR_USUARIO) sessoes.delete(doUsuario[0][0]);
+  if (sessoes.size >= MAX_SESSOES) sessoes.delete(sessoes.keys().next().value);
+  sessoes.set(sha(token), { id: f.id_funcionario, nome: f.nome, perfil: f.perfil, expira: Date.now() + SESSION_MS });
   return token;
 }
 function lerCookie(req, nome) {
@@ -37,8 +44,10 @@ function lerCookie(req, nome) {
   return m ? m.slice(nome.length + 1) : null;
 }
 function sessaoDe(req) {
-  const token = lerCookie(req, 'sid');
-  const s = token && sessoes.get(token);
+  const cookie = lerCookie(req, 'sid');
+  if (!cookie || cookie.length > 64) return null;
+  const token = sha(cookie);
+  const s = sessoes.get(token);
   if (!s) return null;
   if (s.expira < Date.now()) { sessoes.delete(token); return null; }
   return { ...s, token };
@@ -65,12 +74,45 @@ function falhou(chave, janela = 15 * 60 * 1000) {
   else t.n++;
 }
 
+// Limite geral de requisições por IP (janela de 1 min). Protege a aplicação de inundação simples;
+// um DDoS de verdade precisa também de proxy/CDN/WAF na frente (ver README).
+const LIMITE_POR_MIN = Number(process.env.RATE_LIMIT_PER_MIN) || 240;
+const MAX_CHAVES = 50000;   // teto de memória do contador
+const CONFIA_PROXY = process.env.TRUST_PROXY === '1';
+function ipDe(req) {
+  if (CONFIA_PROXY) {
+    const ultimo = String(req.headers['x-forwarded-for'] || '').split(',').pop().trim();
+    if (ultimo) return ultimo.slice(0, 64);
+  }
+  return req.socket.remoteAddress || '?';
+}
+function limiteGeral(req, res) {
+  const chave = 'rl|' + ipDe(req);
+  const agora = Date.now();
+  let t = tentativas.get(chave);
+  if (!t || t.reinicia < agora) {
+    if (tentativas.size >= MAX_CHAVES) for (const k of [...tentativas.keys()].slice(0, MAX_CHAVES / 10)) tentativas.delete(k);
+    tentativas.set(chave, { n: 1, reinicia: agora + 60 * 1000 });
+    return;
+  }
+  if (++t.n > LIMITE_POR_MIN) {
+    res.setHeader('Retry-After', String(Math.ceil((t.reinicia - agora) / 1000)));
+    throw new Erro(429, 'Muitas requisições. Tente novamente em instantes.');
+  }
+}
+
 // ---------------------------------------------------------------- validação
 class Erro extends Error {
   constructor(status, msg) { super(msg); this.status = status; }
 }
 const so = (v) => String(v ?? '').replace(/\D/g, '');
-const txt = (v, max) => String(v ?? '').trim().slice(0, max);
+const CONTROLE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+const MARCACAO_HTML = /<\s*\/?\s*[a-zA-Z!?]/;
+const txt = (v, max) => {
+  const t = String(v ?? '').replace(CONTROLE, '').trim().slice(0, max);
+  if (MARCACAO_HTML.test(t)) throw new Erro(400, 'Não é permitido código HTML nos campos de texto.');
+  return t;
+};
 
 function cpfValido(c) {
   if (!/^\d{11}$/.test(c) || /^(\d)\1{10}$/.test(c)) return false;
@@ -135,30 +177,43 @@ function exige(sessao, ...perfis) {
 const mascaraCpf = (c) => `***.${c.slice(3, 6)}.***-**`;
 
 // ---------------------------------------------------------------- primeiro administrador
+// A senha inicial pode vir de ADMIN_PASSWORD_FILE (melhor: não fica em /proc/<pid>/environ) ou de
+// ADMIN_PASSWORD. Em ambos os casos o valor é retirado de process.env depois de lido.
+let senhaInicial = process.env.ADMIN_PASSWORD;
+if (!senhaInicial && process.env.ADMIN_PASSWORD_FILE) senhaInicial = fs.readFileSync(process.env.ADMIN_PASSWORD_FILE, 'utf8').trim();
+delete process.env.ADMIN_PASSWORD;
 function semeiaAdmin() {
   if (db.prepare('SELECT COUNT(*) AS n FROM funcionario').get().n > 0) return;
   const email = (process.env.ADMIN_EMAIL || 'admin@sorridonto.local').toLowerCase();
-  const gerada = !process.env.ADMIN_PASSWORD;
-  const senha = process.env.ADMIN_PASSWORD || crypto.randomBytes(9).toString('base64url');
+  const gerada = !senhaInicial;
+  const senha = senhaInicial || crypto.randomBytes(9).toString('base64url');
   db.prepare("INSERT INTO funcionario (nome, email, senha_hash, perfil, cargo) VALUES (?, ?, ?, 'admin', 'Administrador')")
     .run('Administrador', email, hashSenha(senha));
   console.log('\n  Primeiro acesso criado.');
   console.log(`  E-mail: ${email}`);
-  console.log(gerada ? `  Senha:  ${senha}   (anote agora: não será exibida de novo)\n` : '  Senha:  definida em ADMIN_PASSWORD\n');
+  console.log(gerada ? `  Senha:  ${senha}   (anote agora: não será exibida de novo)\n` : '  Senha:  definida por você (ADMIN_PASSWORD ou ADMIN_PASSWORD_FILE)\n');
 }
 
 // ---------------------------------------------------------------- API
 async function lerJson(req) {
   if (!(req.headers['content-type'] || '').startsWith('application/json')) throw new Erro(415, 'Envie JSON.');
+  const LIMITE = 64 * 1024;
+  if (Number(req.headers['content-length']) > LIMITE) { req.resume(); throw new Erro(413, 'Requisição grande demais.'); }
   const partes = [];
   let total = 0;
   for await (const p of req) {
     total += p.length;
-    if (total > 64 * 1024) throw new Erro(413, 'Requisição grande demais.');
+    if (total > LIMITE) { req.destroy(); throw new Erro(413, 'Requisição grande demais.'); }
     partes.push(p);
   }
-  try { return JSON.parse(Buffer.concat(partes).toString('utf8') || '{}'); }
-  catch { throw new Erro(400, 'JSON inválido.'); }
+  const texto = Buffer.concat(partes).toString('utf8') || '{}';
+  // Poluição de protótipo / injeção em objetos: nenhum campo com esses nomes é aceito.
+  if (/"(__proto__|constructor|prototype)"\s*:/.test(texto)) throw new Erro(400, 'Campo não permitido.');
+  let obj;
+  try { obj = JSON.parse(texto); } catch { throw new Erro(400, 'JSON inválido.'); }
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) throw new Erro(400, 'Envie um objeto JSON.');
+  if (['__proto__', 'constructor', 'prototype'].some((k) => Object.prototype.hasOwnProperty.call(obj, k))) throw new Erro(400, 'Campo não permitido.');
+  return obj;
 }
 
 const colunasPaciente = 'id_paciente, nome, cpf, data_nascimento, telefone, email, cidade, endereco, observacoes, criado_em';
@@ -173,12 +228,14 @@ async function api(req, res, url) {
   if (pathname === '/api/login' && metodo === 'POST') {
     const b = await lerJson(req);
     const email = txt(b.email, 160).toLowerCase();
-    const chave = `${req.socket.remoteAddress}|${email}`;
-    if (bloqueado(chave)) throw new Erro(429, 'Muitas tentativas. Aguarde 15 minutos.');
+    const ip = ipDe(req);
+    const chave = `${ip}|${email}`;
+    if (bloqueado(chave) || bloqueado('loginip|' + ip, 30)) throw new Erro(429, 'Muitas tentativas. Aguarde 15 minutos.');
     const f = db.prepare('SELECT * FROM funcionario WHERE email = ?').get(email);
     const ok = confereSenha(String(b.senha ?? ''), f ? f.senha_hash : HASH_FALSO) && f && f.ativo === 1;
     if (!ok) {
       falhou(chave);
+      falhou('loginip|' + ip);
       audita(f?.id_funcionario, 'LOGIN_FALHOU', email);
       throw new Erro(401, 'E-mail ou senha incorretos.');
     }
@@ -199,16 +256,18 @@ async function api(req, res, url) {
 
   // --- interessados (formulário público da landing page)
   if (pathname === '/api/interesse' && metodo === 'POST') {
-    const chave = `interesse|${req.socket.remoteAddress}`;
+    const chave = `interesse|${ipDe(req)}`;
     if (bloqueado(chave, 5)) throw new Erro(429, 'Você já enviou alguns pedidos. Tente novamente mais tarde.');
     const b = await lerJson(req);
     const nome = txt(b.nome, 120);
     const email = txt(b.email, 160).toLowerCase();
     if (nome.length < 3) throw new Erro(400, 'Informe seu nome.');
     if (!emailValido(email)) throw new Erro(400, 'E-mail inválido.');
+    const clinica = txt(b.clinica, 120) || null;     // valida tudo ANTES de contar a tentativa
+    const mensagem = txt(b.mensagem, 500) || null;
     falhou(chave, 60 * 60 * 1000);
     db.prepare('INSERT INTO interesse (nome, email, clinica, mensagem) VALUES (?, ?, ?, ?)')
-      .run(nome, email, txt(b.clinica, 120) || null, txt(b.mensagem, 500) || null);
+      .run(nome, email, clinica, mensagem);
     return { ok: true };
   }
   if (pathname === '/api/interesse' && metodo === 'GET') {
@@ -354,7 +413,10 @@ const PAGINAS = { '/': 'index.html', '/admin': 'admin.html' };
 
 function estatico(req, res, pathname) {
   if (req.method !== 'GET' && req.method !== 'HEAD') throw new Erro(405, 'Método não permitido.');
-  let rel = PAGINAS[pathname] || decodeURIComponent(pathname).replace(/^\/+/, '');
+  let rel;
+  try { rel = PAGINAS[pathname] || decodeURIComponent(pathname).replace(/^\/+/, ''); }
+  catch { throw new Erro(400, 'Endereço inválido.'); }
+  if (rel.includes('\0') || rel.split(/[\\/]/).some((p) => p.startsWith('.'))) throw new Erro(404, 'Página não encontrada.');
   const arquivo = path.normalize(path.join(PUBLIC, rel));
   if (!arquivo.startsWith(PUBLIC + path.sep)) throw new Erro(403, 'Acesso negado.');
   let stat;
@@ -378,10 +440,16 @@ const CABECALHOS = {
   'Permissions-Policy': 'geolocation=(), camera=(), microphone=()',
 };
 
-const servidor = http.createServer(async (req, res) => {
+const servidor = http.createServer({ maxHeaderSize: 16 * 1024, connectionsCheckingInterval: 2000 }, async (req, res) => {
   for (const [k, v] of Object.entries(CABECALHOS)) res.setHeader(k, v);
-  const url = new URL(req.url, 'http://localhost');
+  let url;
+  try { url = new URL(req.url, 'http://localhost'); }
+  catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('Endereço inválido.');
+  }
   try {
+    limiteGeral(req, res);
     if (url.pathname.startsWith('/api/')) {
       res.setHeader('Cache-Control', 'no-store');
       const corpo = await api(req, res, url);
@@ -400,6 +468,27 @@ const servidor = http.createServer(async (req, res) => {
     res.end(json ? JSON.stringify({ erro: msg }) : msg);
   }
 });
+
+// Anti-DDoS lento (slowloris) e esgotamento de conexões
+servidor.headersTimeout = 10_000;
+servidor.requestTimeout = 15_000;
+servidor.keepAliveTimeout = 5_000;
+servidor.maxRequestsPerSocket = 500;
+servidor.maxHeadersCount = 60;
+servidor.maxConnections = Number(process.env.MAX_CONNECTIONS) || 500;
+// Conexão que não completa uma requisição em 12 s é derrubada: cobre conexões ociosas que nunca
+// enviam nada e o slowloris (cabeçalho enviado a conta-gotas). Os timers nativos do Node não
+// cobrem esse caso quando há muitas conexões ociosas abertas.
+servidor.on('connection', (socket) => {
+  const limite = setTimeout(() => { if (!socket.pedidoCompleto) socket.destroy(); }, 12_000);
+  socket.once('close', () => clearTimeout(limite));
+});
+servidor.on('request', (req) => { req.socket.pedidoCompleto = true; });
+servidor.on('clientError', (err, socket) => {
+  if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
+  else socket.destroy();
+});
+process.on('unhandledRejection', (e) => console.error('Promessa rejeitada:', e));
 
 semeiaAdmin();
 servidor.listen(PORT, HOST, () => console.log(`SorriDonto em http://${HOST}:${PORT}  (área administrativa: /admin)`));

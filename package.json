@@ -4,8 +4,11 @@
   "description": "Site da clínica SorriDonto com área administrativa (cadastro de funcionários e pacientes)",
   "private": true,
   "main": "server.js",
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
-    "start": "node server.js"
+    "start": "node --max-old-space-size=256 --disable-proto=delete server.js",
+    "verifica": "node security/verifica.js"
   }
 }
