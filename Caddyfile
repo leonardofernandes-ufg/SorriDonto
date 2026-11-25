@@ -1,7 +1,6 @@
 # Proxy reverso: termina o TLS (HTTPS) com certificado automático da Let's Encrypt.
 # Em localhost o Caddy usa uma CA interna (o navegador avisa que não é confiável: é só para teste).
 {
-	email {$EMAIL_ACME}
 	servers {
 		protocols h1 h2 h3
 		# sem estes limites o Caddy aceita conexões lentas ou ociosas para sempre (slowloris)

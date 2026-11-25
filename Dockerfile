@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 # Imagem enxuta: o sistema não tem dependências npm, só o Node 22 (SQLite embutido).
-FROM node:22-alpine
+ARG BASE_IMAGE=node:22-alpine
+FROM ${BASE_IMAGE}
 
 ENV NODE_ENV=production \
     DATA_DIR=/data \

@@ -1,7 +1,10 @@
 # SorriDonto: app (Node) + Caddy (HTTPS). Só o Caddy publica portas; o app fica numa rede interna.
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-node:22-alpine}   # na AWS: espelho public.ecr.aws (sem limite do Docker Hub)
     image: sorridonto:latest
     restart: unless-stopped
     environment:
@@ -23,11 +26,10 @@ services:
     cpus: 0.75
 
   caddy:
-    image: caddy:2.8.4-alpine
+    image: ${CADDY_IMAGE:-caddy:2.8.4-alpine}
     restart: unless-stopped
     environment:
       DOMINIO: ${DOMINIO:?defina DOMINIO no arquivo .env}
-      EMAIL_ACME: ${EMAIL_ACME:?defina EMAIL_ACME no arquivo .env}
     ports:
       - "80:80"
       - "443:443"
