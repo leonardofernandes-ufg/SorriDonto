@@ -10,7 +10,7 @@ ENV NODE_ENV=production \
     TRUST_PROXY=1
 
 WORKDIR /app
-COPY package.json server.js db.js cripto.js ./
+COPY package.json server.js api.js db.js cripto.js ./
 COPY scripts ./scripts
 COPY public ./public
 
