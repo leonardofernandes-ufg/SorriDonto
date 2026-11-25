@@ -8,46 +8,63 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="app">
   <!-- login -->
-  <main id="tela-login" hidden>
+  <main id="tela-login" class="login-tela" hidden>
     <form class="login-box" id="form-login" autocomplete="on">
-      <h1>SorriDonto</h1>
+      <h1>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5c-1.6 0-2.6.6-3.8.6C6 3.1 4 4.2 4 7.5c0 2.3 1 3.8 1.6 6 .5 2 .6 7 2.6 7 1.6 0 1.6-4 2.3-5.2.4-.7 1-.8 1.5-.8s1.1.1 1.5.8c.7 1.2.7 5.2 2.3 5.2 2 0 2.1-5 2.6-7 .6-2.2 1.6-3.7 1.6-6 0-3.3-2-4.4-4.2-4.4-1.2 0-2.2-.6-3.8-.6z"/></svg>
+        SorriDonto
+      </h1>
       <p class="sub">Acesso restrito à equipe da clínica.</p>
       <div class="campo"><label for="login-email">E-mail</label><input id="login-email" name="email" type="email" required autocomplete="username"></div>
       <div class="campo"><label for="login-senha">Senha</label><input id="login-senha" name="senha" type="password" required autocomplete="current-password"></div>
       <p class="msg" id="login-msg" role="alert"></p>
-      <button class="btn bloco" type="submit">Entrar</button>
+      <button class="btn bloco grande" type="submit">Entrar</button>
       <p class="centro"><a href="/">← Voltar ao site</a></p>
     </form>
   </main>
 
   <!-- painel -->
-  <div id="tela-app" hidden>
-    <header class="barra">
-      <div class="wrap">
-        <a class="logo" href="/">SorriDonto</a>
+  <div id="tela-app" class="shell" hidden>
+    <aside class="lado">
+      <a class="logo" href="/">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5c-1.6 0-2.6.6-3.8.6C6 3.1 4 4.2 4 7.5c0 2.3 1 3.8 1.6 6 .5 2 .6 7 2.6 7 1.6 0 1.6-4 2.3-5.2.4-.7 1-.8 1.5-.8s1.1.1 1.5.8c.7 1.2.7 5.2 2.3 5.2 2 0 2.1-5 2.6-7 .6-2.2 1.6-3.7 1.6-6 0-3.3-2-4.4-4.2-4.4-1.2 0-2.2-.6-3.8-.6z"/></svg>
+        SorriDonto
+      </a>
+      <div class="lado-rot">MENU</div>
+      <nav id="abas" role="tablist" aria-label="Seções">
+        <button class="nav-item" role="tab" data-aba="pacientes" aria-selected="true"><span class="ic">🦷</span>Pacientes</button>
+        <button class="nav-item" role="tab" data-aba="funcionarios" aria-selected="false" hidden><span class="ic">👥</span>Funcionários</button>
+        <button class="nav-item" role="tab" data-aba="interessados" aria-selected="false" hidden><span class="ic">✉️</span>Interessados</button>
+        <button class="nav-item" role="tab" data-aba="auditoria" aria-selected="false" hidden><span class="ic">🧾</span>Auditoria</button>
+      </nav>
+      <div class="lado-fim">
         <div class="usuario">
-          <span id="usuario-nome"></span>
-          <span class="tag" id="usuario-perfil"></span>
-          <button class="btn small ghost" id="btn-sair" type="button">Sair</button>
+          <span class="avatar" id="usuario-avatar"></span>
+          <div><strong id="usuario-nome"></strong><small id="usuario-perfil"></small></div>
         </div>
+        <button class="btn small ghost" id="btn-sair" type="button">Sair</button>
       </div>
-    </header>
-    <main class="wrap">
-      <div class="abas" role="tablist" id="abas">
-        <button class="aba" role="tab" data-aba="pacientes" aria-selected="true">Pacientes</button>
-        <button class="aba" role="tab" data-aba="funcionarios" aria-selected="false" hidden>Funcionários</button>
-        <button class="aba" role="tab" data-aba="interessados" aria-selected="false" hidden>Interessados</button>
-        <button class="aba" role="tab" data-aba="auditoria" aria-selected="false" hidden>Auditoria</button>
-      </div>
-      <div class="ferramentas" id="ferramentas">
-        <input type="search" id="busca" placeholder="Buscar por nome, CPF ou e-mail" aria-label="Buscar">
-        <button class="btn" id="btn-novo" type="button">Novo</button>
-      </div>
-      <p class="msg" id="app-msg" role="status"></p>
-      <div class="tabela-wrap"><table id="tabela"></table></div>
-    </main>
+    </aside>
+
+    <div class="principal">
+      <main class="painel">
+        <div class="cabeca">
+          <div>
+            <h1 id="titulo-pagina">Pacientes</h1>
+            <p id="subtitulo-pagina"></p>
+          </div>
+          <button class="btn" id="btn-novo" type="button">Novo</button>
+        </div>
+        <div class="estat" id="estat" hidden></div>
+        <div class="ferramentas" id="ferramentas">
+          <input type="search" id="busca" placeholder="Buscar por nome, CPF ou e-mail" aria-label="Buscar">
+        </div>
+        <p class="msg" id="app-msg" role="status"></p>
+        <div class="tabela-wrap"><table id="tabela"></table></div>
+      </main>
+    </div>
   </div>
 
   <!-- formulário -->

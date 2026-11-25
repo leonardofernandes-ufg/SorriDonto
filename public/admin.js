@@ -42,6 +42,8 @@
     const d = new Date(s.replace(' ', 'T') + 'Z');
     return isNaN(d) ? s : d.toLocaleString('pt-BR');
   };
+  const iniciais = (n) => String(n).trim().split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+  const celNome = (n) => el('td', {}, el('div', { class: 'nome-cel' }, el('span', { class: 'avatar' }, iniciais(n)), n));
   const PERFIL = { admin: 'Administrador', dentista: 'Dentista', recepcao: 'Recepção' };
   const podeEditarPacientes = () => eu && ['admin', 'recepcao'].includes(eu.perfil);
 
@@ -137,7 +139,7 @@
     const lista = await api('/api/pacientes?q=' + encodeURIComponent(q));
     if (!lista.length) return tabelaVazia(q ? 'Nenhum paciente encontrado.' : 'Nenhum paciente cadastrado ainda.');
     monta(['Nome', 'CPF', 'Nascimento', 'Telefone', 'Cidade', ''], lista.map((p) => el('tr', {},
-      el('td', {}, p.nome), el('td', {}, cpfFmt(p.cpf)), el('td', {}, dataBr(p.data_nascimento)), el('td', {}, telFmt(p.telefone)), el('td', {}, p.cidade || ''),
+      celNome(p.nome), el('td', {}, cpfFmt(p.cpf)), el('td', {}, dataBr(p.data_nascimento)), el('td', {}, telFmt(p.telefone)), el('td', {}, p.cidade || ''),
       el('td', { class: 'acoes' },
         el('button', { class: 'btn small ghost', type: 'button', onclick: () => abreForm('pacientes', p.id_paciente) }, podeEditarPacientes() ? 'Editar' : 'Ver'),
         eu.perfil === 'admin' ? el('button', { class: 'btn small danger', type: 'button', onclick: () => excluiPaciente(p) }, 'Excluir') : null))));
@@ -149,7 +151,7 @@
     if (q) lista = lista.filter((f) => (f.nome + ' ' + f.email).toLowerCase().includes(q));
     if (!lista.length) return tabelaVazia('Nenhum funcionário encontrado.');
     monta(['Nome', 'E-mail', 'Perfil', 'Cargo / CRO', 'Situação', ''], lista.map((f) => el('tr', {},
-      el('td', {}, f.nome), el('td', {}, f.email), el('td', {}, PERFIL[f.perfil]),
+      celNome(f.nome), el('td', {}, f.email), el('td', {}, PERFIL[f.perfil]),
       el('td', {}, [f.cargo, f.cro && 'CRO ' + f.cro].filter(Boolean).join(' · ')),
       el('td', {}, el('span', { class: 'tag ' + (f.ativo ? 'ok' : 'off') }, f.ativo ? 'Ativo' : 'Inativo')),
       el('td', { class: 'acoes' }, el('button', { class: 'btn small ghost', type: 'button', onclick: () => abreForm('funcionarios', f.id_funcionario) }, 'Editar')))));
@@ -179,16 +181,47 @@
     } catch (e) { mensagem(e.message); }
   }
 
+  const TITULOS = {
+    pacientes: ['Pacientes', 'Cadastre, busque e atualize as fichas dos pacientes.'],
+    funcionarios: ['Funcionários', 'Quem tem acesso ao sistema e com qual perfil.'],
+    interessados: ['Interessados', 'Pedidos de teste grátis feitos pelo site.'],
+    auditoria: ['Auditoria', 'Registro de logins e alterações, escrito pelo sistema.'],
+  };
+
+  const CARTAO_ESTAT = (emoji, tom, valor, rotulo) =>
+    el('div', { class: 'card sombra' }, el('div', { class: 'emoji ' + tom }, emoji), el('div', {}, el('strong', {}, valor), el('small', {}, rotulo)));
+
+  async function atualizaEstat() {
+    const caixa = $('estat');
+    caixa.hidden = aba !== 'pacientes';
+    if (aba !== 'pacientes') return;
+    try {
+      const pac = await api('/api/pacientes');
+      const semana = Date.now() - 7 * 24 * 3600 * 1000;
+      const novos = pac.filter((p) => new Date(p.criado_em.replace(' ', 'T') + 'Z').getTime() > semana).length;
+      const cartoes = [CARTAO_ESTAT('🦷', 'tom-azul', pac.length, 'pacientes'), CARTAO_ESTAT('🆕', 'tom-verde', novos, 'novos nos últimos 7 dias')];
+      if (eu.perfil === 'admin') {
+        const [func, ints] = await Promise.all([api('/api/funcionarios'), api('/api/interesse')]);
+        cartoes.push(CARTAO_ESTAT('👥', 'tom-roxo', func.filter((f) => f.ativo).length, 'funcionários ativos'));
+        cartoes.push(CARTAO_ESTAT('✉️', 'tom-laranja', ints.length, 'pedidos de teste'));
+      }
+      caixa.replaceChildren(...cartoes);
+    } catch { caixa.hidden = true; }
+  }
+
   function trocaAba(nova) {
     aba = nova;
-    document.querySelectorAll('.aba').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === nova)));
+    document.querySelectorAll('.nav-item').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === nova)));
     $('busca').value = '';
+    $('titulo-pagina').textContent = TITULOS[nova][0];
+    $('subtitulo-pagina').textContent = TITULOS[nova][1];
     $('ferramentas').hidden = nova === 'auditoria' || nova === 'interessados';
     $('busca').placeholder = nova === 'pacientes' ? 'Buscar por nome, CPF ou e-mail' : 'Buscar por nome ou e-mail';
     const novo = $('btn-novo');
-    novo.textContent = nova === 'pacientes' ? 'Novo paciente' : 'Novo funcionário';
-    novo.hidden = nova === 'pacientes' && !podeEditarPacientes();
+    novo.textContent = nova === 'pacientes' ? '+ Novo paciente' : '+ Novo funcionário';
+    novo.hidden = nova === 'auditoria' || nova === 'interessados' || (nova === 'pacientes' && !podeEditarPacientes());
     recarrega();
+    atualizaEstat();
   }
 
   // ------------------------------------------------------------ formulário
@@ -225,6 +258,7 @@
       $('dialogo').close();
       mensagem(editando ? 'Alterações salvas.' : 'Cadastro realizado.', true);
       await (tipo === 'pacientes' ? carregaPacientes() : carregaFuncionarios());
+      atualizaEstat();
     } catch (e) { msg.textContent = e.message; }
     finally { $('btn-salvar').disabled = false; }
   }
@@ -235,6 +269,7 @@
       await api('/api/pacientes/' + p.id_paciente, { method: 'DELETE' });
       mensagem('Paciente excluído.', true);
       await carregaPacientes();
+      atualizaEstat();
     } catch (e) { mensagem(e.message); }
   }
 
@@ -243,6 +278,7 @@
     eu = usuario;
     $('usuario-nome').textContent = eu.nome;
     $('usuario-perfil').textContent = PERFIL[eu.perfil];
+    $('usuario-avatar').textContent = iniciais(eu.nome);
     document.querySelector('[data-aba="funcionarios"]').hidden = eu.perfil !== 'admin';
     document.querySelector('[data-aba="auditoria"]').hidden = eu.perfil !== 'admin';
     document.querySelector('[data-aba="interessados"]').hidden = eu.perfil !== 'admin';
@@ -264,7 +300,7 @@
     eu = null;
     mostra('login');
   });
-  $('abas').addEventListener('click', (ev) => { const b = ev.target.closest('.aba'); if (b) trocaAba(b.dataset.aba); });
+  $('abas').addEventListener('click', (ev) => { const b = ev.target.closest('.nav-item'); if (b) trocaAba(b.dataset.aba); });
   $('btn-novo').addEventListener('click', () => abreForm(aba));
   $('btn-cancelar').addEventListener('click', () => $('dialogo').close());
   $('form').addEventListener('submit', salva);
